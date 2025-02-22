@@ -151,7 +151,13 @@ const merge = (streamInfo, res) => {
         const [,,, muxOutput] = process.stdio;
 
         res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Transfer-Encoding', 'chunked');
         res.setHeader('Content-Disposition', contentDisposition(streamInfo.filename));
+        if(streamInfo.headers && streamInfo.headers.length === 2){
+            res.setHeader('Content-Type', streamInfo.headers[0]['content-type']);
+            res.setHeader('Content-Length', Number(streamInfo.headers[0]['content-length']) + Number(streamInfo.headers[1]['content-length']));
+            res.setHeader('Alt-Svc', streamInfo.headers[0]['alt-svc']);
+        }
 
         pipe(muxOutput, res, shutdown);
 

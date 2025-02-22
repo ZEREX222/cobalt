@@ -123,6 +123,15 @@ const cloneInnertube = async (customFetch) => {
     return yt;
 }
 
+const getHeaders = async (url) => {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return Object.fromEntries(response.headers);
+    } catch (error) {
+        console.error('Error:', error.message);
+    }
+}
+
 export default async function (o) {
     let yt;
     try {
@@ -530,7 +539,8 @@ export default async function (o) {
             filenameAttributes,
             fileMetadata,
             isHLS: useHLS,
-            originalRequest
+            originalRequest,
+            headers: [await getHeaders(video), await getHeaders(audio)]
         }
     }
 
