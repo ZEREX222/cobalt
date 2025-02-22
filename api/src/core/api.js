@@ -263,7 +263,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         }
     })
 
-    app.get('/tunnel', apiTunnelLimiter, async (req, res) => {
+    app.get('/tunnel/:filename', apiTunnelLimiter, async (req, res) => {
         const id = String(req.query.id);
         const exp = String(req.query.exp);
         const sig = String(req.query.sig);

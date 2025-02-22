@@ -53,7 +53,7 @@ export function createStream(obj) {
         env.streamLifespan
     );
 
-    let streamLink = new URL('/tunnel', env.apiURL);
+    let streamLink = new URL('/tunnel/'+obj.filename, env.apiURL);
 
     const params = {
         'id': streamID,
