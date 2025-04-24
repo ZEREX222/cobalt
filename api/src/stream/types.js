@@ -153,6 +153,12 @@ const merge = (streamInfo, res) => {
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('Transfer-Encoding', 'chunked');
         res.setHeader('Content-Disposition', contentDisposition(streamInfo.filename));
+        if (streamInfo.filename.toLowerCase().includes('.mp4')) {
+            // Set proper MIME type for MP4
+            res.setHeader('Content-Type', 'video/mp4');
+        }else{
+            res.setHeader('Content-Type', 'video/webm');
+        }
         if(streamInfo.headers && streamInfo.headers.length === 2){
             res.setHeader('Content-Type', streamInfo.headers[0]['content-type']);
             res.setHeader('Content-Length', Number(streamInfo.headers[0]['content-length']) + Number(streamInfo.headers[1]['content-length']));
