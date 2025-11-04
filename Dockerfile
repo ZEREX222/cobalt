@@ -1,4 +1,4 @@
-FROM node:23-alpine AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -19,6 +19,10 @@ WORKDIR /app
 
 COPY --from=build --chown=node:node /prod/api /app
 COPY --from=build --chown=node:node /app/.git /app/.git
+
+# Create writable tmp folder for youtubei.js or other caches
+RUN mkdir -p /app/tmp/youtubei.js \
+    && chown -R node:node /app/tmp
 
 USER node
 
