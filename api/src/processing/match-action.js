@@ -164,14 +164,6 @@ export default function({
                     }
                     break;
 
-                case "loom":
-                    if (r.subtitles) {
-                        params = { type: "remux" };
-                    } else {
-                        responseType = "redirect";
-                    }
-                    break;
-
                 case "vk":
                 case "tiktok":
                     params = {
