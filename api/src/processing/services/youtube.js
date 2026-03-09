@@ -5,11 +5,15 @@ import vm from 'node:vm';
 
 import { env } from "../../config.js";
 import { getCookie } from "../cookie/manager.js";
+import { createStream } from "../../stream/manage.js";
 import { getYouTubeSession } from "../helpers/youtube-session.js";
+import { getBasicInfo } from "../helpers/youtube-onesie.js";
 
 const PLAYER_REFRESH_PERIOD = 1000 * 60 * 15; // ms
+const MINTER_REFRESH_PERIOD = 1000 * 60 * 60 * 6;
 
 let innertube, lastRefreshedAt;
+let poMinter, poMinterLastRefresh = 0;
 
 const codecList = {
     h264: {
@@ -69,8 +73,48 @@ const youtubeEval = async (data, env) => {
     return vm.runInNewContext(code);
 }
 
+
+let encryptedHostFlags = "";
+const fetchEncryptedHostFlags = async (fetch) => {
+    const embedResp = await fetch("https://youtube.com/embed/QfKmnuHMpYo", {
+        headers: {
+            "Referer": "https://www.google.com"
+        }
+    })
+        .then(r => r.text());
+
+    const hostFlagsMatch = /encryptedHostFlags":"(.+?)"/.exec(embedResp);
+    if (hostFlagsMatch?.length > 1) {
+        encryptedHostFlags = hostFlagsMatch[1];
+    } else {
+        console.error(new Date(), "Could not fetch encryptedHostFlags, no match!");
+    }
+}
+
+/**
+ * @type {typeof import("../helpers/youtube-po.js")}
+ */
+let poModule;
+
 const cloneInnertube = async (customFetch, useSession) => {
     Platform.shim.eval = youtubeEval;
+
+    if (env.ytGeneratePoTokens) {
+        if (!poModule) {
+            // Importing this helper also needs BGUtils and JSDOM,
+            // I'm importing them dynamically here so a) startup
+            // doesn't get delayed and b) so I can mark these
+            // dependencies as optional
+            poModule = await import("../helpers/youtube-po.js");
+        }
+
+        if (!poMinter || +new Date() > poMinterLastRefresh + MINTER_REFRESH_PERIOD) {
+            poMinter?.then(minter => minter.remove()).catch(() => {});
+            poMinter = poModule.getMinter({ fetch: customFetch });
+            poMinterLastRefresh = +new Date();
+        }
+    }
+
     const shouldRefreshPlayer = globalThis.FORCE_RESET_INNERTUBE_PLAYER || lastRefreshedAt + PLAYER_REFRESH_PERIOD < new Date();
 
     const rawCookie = getCookie('youtube');
@@ -95,7 +139,19 @@ const cloneInnertube = async (customFetch, useSession) => {
             enable_session_cache: false,
             player_id: env.ytPlayerId,
         });
+
+        if (env.ytGeneratePoTokens) {
+            const { minter } = await poMinter;
+            innertube.session.po_token = await minter.mintAsWebsafeString(innertube.session.context.client.visitorData);
+        }
+
         lastRefreshedAt = +new Date();
+
+        if (!useSession && env.customInnertubeClient === "WEB_EMBEDDED") {
+            // WEB_EMBEDDED sometimes needs a property named `encryptedHostFlags`, which you
+            // can seemingly only get by extracting it out of a player response
+            await fetchEncryptedHostFlags(customFetch);
+        }
     }
 
     const session = new Session(
@@ -108,7 +164,7 @@ const cloneInnertube = async (customFetch, useSession) => {
         cookie,
         customFetch ?? innertube.session.http.fetch,
         innertube.session.cache,
-        sessionTokens?.potoken
+        innertube.session.po_token ?? sessionTokens?.potoken
     );
 
     const yt = new Innertube(session);
@@ -192,6 +248,55 @@ const getSubtitles = async (info, dispatcher, subtitleLang) => {
     }
 }
 
+/**
+ * @param {Innertube} yt
+ * @param {*} o
+ */
+const fetchPost = async (yt, o) => {
+    const fixImageResolution = (imageUrl) => {
+        let url = imageUrl;
+        const imageModSeparator = url.indexOf("=");
+        if (imageModSeparator) {
+            // w0 = highest res, ip = do not strip metadata, rp = force png output
+            url = url.substring(0, imageModSeparator) + "=w0-ip-rp";
+        }
+
+        return url;
+    };
+
+    // channel id does just.. not seem to matter at all
+    const postFeed = await yt.getPost(o.postId, "a");
+    if (!postFeed.posts.length) return { error: "fetch.empty" };
+
+    const [ post ] = postFeed.posts;
+    switch (post.attachment?.type) {
+        case "PostMultiImage":
+            const picker = post.attachment.images.map((image, i) => {
+                const proxiedImage = createStream({
+                    service: "youtube",
+                    type: "proxy",
+                    url: fixImageResolution(image.image[0].url),
+                    filename: `youtube_${o.postId}_${i + 1}.png`
+                });
+
+                return {
+                    type: "photo",
+                    url: proxiedImage
+                };
+            });
+
+            return { picker };
+        case "BackstageImage":
+            return {
+                urls: fixImageResolution(post.attachment.image[0].url),
+                isPhoto: true,
+                filename: `youtube_${o.postId}.png`
+            };
+        default:
+            return { error: "fetch.empty" };
+    }
+}
+
 export default async function (o) {
     const quality = o.quality === "max" ? 9000 : Number(o.quality);
 
@@ -222,10 +327,10 @@ export default async function (o) {
         );
 
     // we can get subtitles reliably only from the iOS client
-    if (o.subtitleLang) {
-        innertubeClient = "IOS";
-        useSession = false;
-    }
+    // if (o.subtitleLang) {
+    //     innertubeClient = "IOS";
+    //     useSession = false;
+    // }
 
     if (useSession) {
         innertubeClient = env.ytSessionInnertubeClient || "WEB_EMBEDDED";
@@ -250,9 +355,41 @@ export default async function (o) {
         } else throw e;
     }
 
+    if (!o.id && o.postId) {
+        return await fetchPost(yt, o);
+    }
+
     let info;
     try {
-        info = await yt.getBasicInfo(o.id, { client: innertubeClient });
+        const args = {
+            videoId: o.id,
+            client: innertubeClient,
+            parse: true,
+            playbackContext: {
+                contentPlaybackContext: {
+                    vis: 0,
+                    splay: false,
+                    lactMilliseconds: '-1',
+                    signatureTimestamp: yt.session.player?.signature_timestamp,
+                }
+            }
+        };
+
+        if (innertubeClient === "WEB_EMBEDDED" && encryptedHostFlags) {
+            args.playbackContext.contentPlaybackContext.encryptedHostFlags = encryptedHostFlags;
+        }
+
+        if (yt.session.po_token) {
+            args.serviceIntegrityDimensions = {
+                poToken: yt.session.po_token
+            };
+        }
+
+        if (env.ytUseOnesie) {
+            info = await getBasicInfo(yt, args);
+        } else {
+            info = await yt.actions.execute("/player", args);
+        }
     } catch (e) {
         if (e?.info) {
             let errorInfo;
@@ -276,12 +413,11 @@ export default async function (o) {
     if (!info) return { error: "fetch.fail" };
 
     const playability = info.playability_status;
-    const basicInfo = info.basic_info;
+    const basicInfo = info.video_details ?? info.basic_info;
 
     switch (playability.status) {
         case "LOGIN_REQUIRED":
             if (playability.reason.endsWith("bot")) {
-                // Instantly refresh
                 lastRefreshedAt = +new Date(0);
                 return { error: "youtube.login", retry: true }
             }
