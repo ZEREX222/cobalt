@@ -111,7 +111,7 @@ export function createResponse(responseType, responseData) {
                 if (responseData.code.toString().includes("youtube.login")) {
                     addServiceError("youtube", response.error.code);
                 } else {
-                    addServiceError(response.error.context.service, response.error.code);
+                    addServiceError(response.error?.context?.service ?? "unknown", response.error.code);
                 }
             }
         }
