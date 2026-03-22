@@ -3,10 +3,24 @@ import { cobaltUserAgent } from "../../config.js";
 import { createStream } from "../../stream/manage.js";
 
 const extractVideoNonHLS = async ({ did, cid, filename, dispatcher }) => {
-    const didDoc = await fetch(`https://plc.directory/${did}`, { dispatcher })
-        .then(r => r.json())
-        .catch(() => {});
-    
+    let didDoc;
+    const didParts = did.split(":");
+    const didType = didParts?.[1];
+    switch (didType) {
+        case "plc": {
+            didDoc = await fetch(`https://plc.directory/${did}`, { dispatcher })
+                .then(r => r.json())
+                .catch(() => {});
+            break;
+        }
+        case "web": {
+            didDoc = await fetch(`https://${didParts[2]}/.well-known/did.json`, { dispatcher })
+                .then(r => r.json())
+                .catch(() => {});
+            break;
+        }
+    };
+        
     if (!didDoc) return { error: "fetch.fail" };
 
     const pds = didDoc.service.find(service => service.type === "AtprotoPersonalDataServer")
