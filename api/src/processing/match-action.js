@@ -146,6 +146,7 @@ export default function({
                     params = { type: r.type };
                     break;
 
+                case "rutube":
                 case "vimeo":
                     if (Array.isArray(r.urls)) {
                         params = { type: "merge" };
