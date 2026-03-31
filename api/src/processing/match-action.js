@@ -173,9 +173,13 @@ export default function({
 
                 case "vk":
                 case "tiktok":
-                    params = {
-                        type: r.subtitles ? "remux" : "proxy"
-                    };
+                    if (r.subtitles) {
+                        params = { type: "remux" };
+                    } else if (Array.isArray(r.urls)) {
+                        params = { type: "merge" };
+                    } else {
+                        params = { type: "proxy" };
+                    }
                     break;
 
                 case "ok":

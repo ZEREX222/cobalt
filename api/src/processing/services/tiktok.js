@@ -79,10 +79,21 @@ export default async function(obj) {
     images = detail.imagePost?.images;
 
     let playAddr = detail.video?.playAddr;
+    let audioAddrOverride = null;
 
     if (obj.h265) {
+        const h265BitrateInfo = detail?.video?.bitrateInfo?.find(b => b.CodecType.includes("h265"));
+        if (h265BitrateInfo) {
+            playAddr = h265BitrateInfo?.PlayAddr?.UrlList[0];
+            
+            if (h265BitrateInfo.Format === "dash") {
+                // DASH qualities don't have any audio attached
+                // to them by default
+                audioAddrOverride = detail?.video?.bitrateAudioInfo?.sort((a, b) => b.Bitrate - a.Bitrate).at(0)?.UrlList?.MainUrl;
+            }
+        }
         const h265PlayAddr = detail?.video?.bitrateInfo?.find(b => b.CodecType.includes("h265"))?.PlayAddr.UrlList[0]
-        playAddr = h265PlayAddr || playAddr
+        playAddr = h265PlayAddr || playAddr;
     }
 
     if (!obj.isAudioOnly && !images) {
@@ -114,7 +125,7 @@ export default async function(obj) {
             }
         }
         return {
-            urls: video,
+            urls: audioAddrOverride != null ? [video, audioAddrOverride] : video,
             subtitles,
             fileMetadata,
             filename: videoFilename,
