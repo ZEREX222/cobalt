@@ -11,15 +11,16 @@ import { getYouTubeSession } from "../helpers/youtube-session.js";
 
 // https://github.com/LuanRT/YouTube.js/pull/1052
 Platform.shim.eval = async (data) => {
-    const isolate = new ivm.Isolate();
+  const isolate = new ivm.Isolate();
 
-    try {
-        const context = await isolate.createContext();
-        const script = await isolate.compileScript(`(() => { ${data.output} })()`);
-        return await script.run(context, { copy: true, timeout: 5000 });
-    } finally {
-        isolate.dispose();
-    }
+  try {
+    const context = await isolate.createContext();
+    const code = `(() => { ${data.output} })()`;
+    const script = await isolate.compileScript(code);
+    return await script.run(context, { copy: true, timeout: 5000 });
+  } finally {
+    isolate.dispose();
+  }
 }
 
 const PLAYER_REFRESH_PERIOD = 1000 * 60 * 15; // ms
@@ -103,12 +104,11 @@ const cloneInnertube = async (customFetch, useSession, requestIP) => {
     }
 
     if (!innertube || shouldRefreshPlayer) {
-        globalThis.FORCE_RESET_INNERTUBE_PLAYER = false;
         let player_id;
         if (env.ytPlayerIds) {
             player_id = env.ytPlayerIds[
                 Math.floor(Math.random() * env.ytPlayerIds.length)
-                ];
+            ];
         }
 
         innertube = await Innertube.create({
@@ -118,7 +118,6 @@ const cloneInnertube = async (customFetch, useSession, requestIP) => {
             cookie,
             po_token: useSession ? sessionTokens?.potoken : undefined,
             visitor_data: useSession ? sessionTokens?.visitor_data : undefined,
-            enable_session_cache: false,
             player_id,
         });
 
@@ -338,15 +337,15 @@ export default async function (o) {
         yt = await cloneInnertube(
             (input, init) => {
                 const url = typeof input === 'string'
-                    ? new URL(input)
-                    : input instanceof URL
-                        ? input
-                        : new URL(input.url);
+                          ? new URL(input)
+                          : input instanceof URL
+                            ? input
+                            : new URL(input.url);
 
                 const request = new Request(
                     url,
                     input instanceof Platform.shim.Request
-                        ? input : undefined
+                    ? input : undefined
                 );
 
                 return fetch(request, {
@@ -354,8 +353,7 @@ export default async function (o) {
                     dispatcher: o.dispatcher
                 });
             },
-            useSession,
-            o.requestIP,
+            useSession
         );
     } catch (e) {
         if (e === "no_session_tokens") {
