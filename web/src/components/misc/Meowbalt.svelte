@@ -46,8 +46,4 @@
     .error {
         margin-left: 25px;
     }
-
-    :global([data-theme="light"]) .caninetools {
-        filter: invert(100%);
-    }
 </style>
