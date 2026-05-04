@@ -75,6 +75,7 @@ export async function handleHlsPlaylist(streamInfo, req, res) {
 
     hlsPlaylist = HLS.stringify(hlsPlaylist);
 
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
     res.send(hlsPlaylist);
 }
 
