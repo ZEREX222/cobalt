@@ -30,3 +30,5 @@ jobs:
           file: ./web/Dockerfile
           push: true
           tags: git.canine.tools/canine.tools/cobalt:web
+          cache-from: type=gha
+          cache-to: type=gha,mode=max,ignore-error=true
