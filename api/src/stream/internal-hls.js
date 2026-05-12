@@ -22,6 +22,10 @@ function transformObject(streamInfo, hlsObject) {
         fullUrl = new URL(hlsObject.uri, streamInfo.url);
     }
 
+    if (streamInfo.service === "loom") {
+        fullUrl.search = new URL(streamInfo.url).search;
+    }
+
     if (fullUrl.hostname !== '127.0.0.1') {
         hlsObject.uri = createInternalStream(fullUrl.toString(), streamInfo);
 
@@ -61,8 +65,7 @@ export function isHlsResponse(req, streamInfo) {
         // bluesky's cdn responds with wrong content-type for the hls playlist,
         // so we enforce it here until they fix it
         || (streamInfo.service === 'bsky' && streamInfo.url.endsWith('.m3u8'))
-        // dailymotion also responds with the wrong content-type sometimes
-        || (streamInfo.service === 'dailymotion' && URL.parse(streamInfo.url)?.pathname.endsWith('.m3u8'));
+        || HLS_MIME_TYPES.some(type => req.headers['content-type'].startsWith(type))
 }
 
 export async function handleHlsPlaylist(streamInfo, req, res) {
@@ -130,6 +133,11 @@ export async function probeInternalHLSTunnel(streamInfo) {
                 segmentUrl = new URL(randomSegment.uri);
             } else {
                 segmentUrl = new URL(randomSegment.uri, streamInfo.url);
+
+                // loom quirk: keep query params
+                if (streamInfo.service === "loom") {
+                    segmentUrl.search = new URL(streamInfo.url).search;
+                }
             }
 
             const segmentSize = await getSegmentSize(segmentUrl, config) / randomSegment.duration;

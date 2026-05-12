@@ -162,7 +162,7 @@ export default function({
                         responseType = "redirect";
                     }
                     break;
-
+                
                 case "loom":
                     if (r.subtitles) {
                         params = { type: "remux" };
