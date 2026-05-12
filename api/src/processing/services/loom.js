@@ -91,6 +91,7 @@ async function getVideo({ cdnUrl, dispatcher }) {
     const chosenAudio =
         audioRenditions.find(a => a.default) ??
         audioRenditions[0] ??
+        bestVariant?.audio?.[0] ??
         null;
 
     const audioURL = chosenAudio?.uri
@@ -156,8 +157,7 @@ export default async function({ id, subtitleLang, dispatcher }) {
     let videoData = await getVideo({ cdnUrl: videoSession.url, dispatcher });
 
     return {
-        urls: videoData.url,
-        audioUrls: videoData.audioUrl,
+        urls: videoData.audioUrl ? [videoData.url, videoData.audioUrl] : videoData.url,
         subtitles,
         filename: `loom_${id}.mp4`,
         audioFilename: `loom_${id}_audio`,
