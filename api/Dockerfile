@@ -15,7 +15,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-    pnpm deploy --filter=@imput/cobalt-api --prod /prod/api
+    pnpm deploy --legacy --filter=@imput/cobalt-api --prod /prod/api
 
 FROM base AS api
 WORKDIR /app
