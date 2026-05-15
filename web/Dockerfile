@@ -10,14 +10,14 @@ RUN apk add --no-cache nodejs npm git
 RUN npm install -g pnpm@latest
 
 # Copy build stuff
-COPY pnpm-workspace.yaml /app/
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml /app/
 COPY web/ /app/web/
 COPY packages/ /app/packages/
 COPY .git /app/.git
 
 # Build frontend
 WORKDIR /app/web
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 RUN pnpm run build
 
 FROM caddy:alpine AS final
