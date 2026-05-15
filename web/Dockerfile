@@ -1,4 +1,4 @@
-FROM alpine:latest AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 # Set env here for build
