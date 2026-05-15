@@ -2,3 +2,9 @@ packages:
     - "api"
     - "web"
     - "packages/*"
+onlyBuiltDependencies:
+  - esbuild
+  - ffmpeg-static
+  - isolated-vm
+  - svelte-preprocess
+  - syscall-napi
