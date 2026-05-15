@@ -1,4 +1,4 @@
-FROM node:23-alpine AS base
+FROM node:24-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -8,6 +8,8 @@ COPY . /app
 
 RUN corepack enable
 RUN apk add --no-cache python3 alpine-sdk
+
+RUN pnpm config set strict-dep-builds false
 
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
