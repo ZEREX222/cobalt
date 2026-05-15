@@ -7,7 +7,8 @@ ENV WEB_DEFAULT_API="https://cobalt-backend.canine.tools/"
 ENV WEB_PLAUSIBLE_HOST="plausible.canine.tools"
 
 RUN apk add --no-cache nodejs npm git
-RUN npm install -g pnpm
+RUN corepack enable
+RUN corepack prepare pnpm@10.33.0 --activate
 
 # Copy build stuff
 COPY pnpm-workspace.yaml /app/
