@@ -2,9 +2,9 @@ packages:
     - "api"
     - "web"
     - "packages/*"
-onlyBuiltDependencies:
-  - esbuild
-  - ffmpeg-static
-  - isolated-vm
-  - svelte-preprocess
-  - syscall-napi
+allowBuilds:
+  esbuild: true
+  ffmpeg-static: true
+  isolated-vm: true
+  svelte-preprocess: true
+  syscall-napi: true
