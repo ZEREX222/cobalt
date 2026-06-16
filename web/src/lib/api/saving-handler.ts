@@ -32,6 +32,13 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
                     main: true,
                     action: () => {},
                 },
+                {
+                    text: get(t)("button.try_another"),
+                    main: false,
+                    action: () => {
+                        window.open("https://cobalt.directory", "_blank");
+                    },
+                },
             ],
             bodyText: errorText,
         });

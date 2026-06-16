@@ -152,7 +152,8 @@
         {$t("save.label.community_instance")}
     </div>
     <div id="instance-label">
-        {$t("save.label.quick_info")}
+        <p>{$t("save.label.quick_info")}</p>
+        <p>if you like our instance, consider <a href="https://canine.tools/donate">supporting us!</a></p>
     </div>
 {/if}
 
@@ -360,6 +361,7 @@
         font-size: 13px;
         color: var(--gray);
         font-weight: 500;
+        text-align: center;
     }
 
     @media screen and (max-width: 440px) {

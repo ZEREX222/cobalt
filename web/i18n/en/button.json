@@ -26,6 +26,5 @@
     "remove": "remove",
     "retry": "retry",
     "delete": "delete",
-    "cobalt_directory": "cobalt.directory",
-    "patrick": "patriick.dev"
+    "try_another": "try another instance"
 }
