@@ -1,1 +1,1 @@
-export type MeowbaltEmotions = "smile" | "error" | "question" | "think" | "love" | "howlingwoofbalt" | "halt";
+export type MeowbaltEmotions = "smile" | "error" | "think" | "love" | "halt" | "random";

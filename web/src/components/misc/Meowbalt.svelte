@@ -10,13 +10,27 @@
     const { emotion, forceLoaded }: Props = $props();
 
     let loaded = $state(false);
+
+    const emotions = [
+        "smile",
+        "error",
+        "think",
+        "love",
+        "halt"
+    ] as const;
+
+    const real = $derived(
+        emotion === "random"
+            ? emotions[Math.floor(Math.random() * emotions.length)]
+            : emotion
+    );
 </script>
 
 <img
-    class="meowbalt {emotion}"
+    class="meowbalt {real}"
     class:loaded={loaded || forceLoaded}
     onload={() => (loaded = true)}
-    src="/meowbalt/{emotion}.png"
+    src="/meowbalt/{real}.png"
     height="152"
     alt={$t("general.meowbalt")}
     aria-hidden="true"
