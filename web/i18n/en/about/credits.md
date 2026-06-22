@@ -15,7 +15,7 @@
 cobalt is made with love and care by [imput](https://imput.net/) ❤️
 
 we're a small team of two guys, but we work really hard to make great software that benefits everyone.
-if you like our work, please consider supporting it on the [donate page](/donate)!
+if you like our work, please consider supporting it on the [donate page](https://cobalt.tools/donate)!
 </section>
 
 <section id="testers">
