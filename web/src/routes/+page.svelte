@@ -18,7 +18,7 @@
         tabindex="-1"
         data-first-focus
     >
-        <Meowbalt emotion="howlingwoofbalt" />
+        <Meowbalt emotion="halt" />
         <Omnibox />
     </main>
     <div id="terms-note">

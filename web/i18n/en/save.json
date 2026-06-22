@@ -21,8 +21,9 @@
     "tutorial.shortcut.photos": "to photos",
     "tutorial.shortcut.files": "to files",
 
-    "label.community_instance": "cobalt.canine.tools (community instance)",
-    "label.quick_info": "the fluffiest cobalt instance on the web!",
+    "label.community_instance": "cobalt.canine.tools",
+    "label.quick_info": "the fluffiest community cobalt instance on the web!",
+    "donate_body": "looking to support the project? who would you like to donate to?\n\ncobalt.tools - the developers of cobalt.\n\ncanine.tools - the owners of this instance.\n\nboth need your support!",
 
     "tooltip.captcha": "cloudflare turnstile is checking if you're not a bot, please wait!"
 }
