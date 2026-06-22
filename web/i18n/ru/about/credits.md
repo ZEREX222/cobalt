@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { contacts, docs, partners } from "$lib/env";
+    import { contacts, docs } from "$lib/env";
     import { t } from "$lib/i18n/translations";
 
     import SectionHeading from "$components/misc/SectionHeading.svelte";
@@ -30,16 +30,6 @@
 <BetaTesters />
 
 все ссылки внешние и ведут на их личные сайты или соцсети.
-</section>
-
-<section id="partners">
-<SectionHeading
-    title={$t("about.heading.partners")}
-    sectionId="partners"
-/>
-
-часть инфраструктуры кобальта предоставлена нашим давним партнёром,
-[royalehosting.net]({partners.royalehosting})!
 </section>
 
 <section id="meowbalt">

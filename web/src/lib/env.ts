@@ -31,10 +31,6 @@ const contacts = {
     telegram_ru: "https://t.me/justusecobalt_ru",
 }
 
-const partners = {
-    royalehosting: "https://royalehosting.net/?partner=cobalt",
-}
-
 const donate = {
     stripe: "https://donate.stripe.com/3cs2cc6ew1Qda4wbII",
     liberapay: "https://liberapay.com/imput/donate",
