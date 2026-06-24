@@ -3,10 +3,5 @@
     "engines": {
         "pnpm": ">=9"
     },
-    "pnpm": {
-        "onlyBuiltDependencies": [
-            "esbuild",
-            "svelte-preprocess"
-        ]
-    }
+    "packageManager": "pnpm@11.8.0"
 }
