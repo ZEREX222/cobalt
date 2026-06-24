@@ -48,7 +48,7 @@
         "svelte-preprocess": "^6.0.5",
         "svelte-sitemap": "2.7.1",
         "sveltekit-i18n": "^2.4.2",
-        "ts-deepmerge": "^7.0.3",
+        "ts-deepmerge": "^8.0.0",
         "tslib": "^2.8.1",
         "turnstile-types": "^1.2.3",
         "typescript": "^5.9.3",
