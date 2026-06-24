@@ -75,7 +75,7 @@
         {#if banner}
             <div class="changelog-banner-container">
                 <img
-                    src={`/update-banners/${banner.file}`}
+                    src={`${banner.file}`}
                     alt={banner.alt}
                     class:loading={!bannerLoaded}
                     onload={loaded}

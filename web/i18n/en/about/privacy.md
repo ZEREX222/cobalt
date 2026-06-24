@@ -104,9 +104,7 @@ if you opt out, the plausible script will not be loaded at all.
 />
 
 we use cloudflare services for:
-- ddos & abuse protection.
 - bot protection (cloudflare turnstile).
-- hosting & deploying the statically rendered web app (cloudflare workers).
 
 all of these are required to provide the best experience for everyone.
 cloudflare is the most private & reliable provider for all mentioned solutions that we know of.
