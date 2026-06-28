@@ -8,7 +8,7 @@
     "author": "imput <meow@imput.net>",
     "license": "MIT",
     "devDependencies": {
-        "prettier": "3.7.4",
+        "prettier": "3.9.1",
         "tsup": "^8.5.1",
         "typescript": "^5.9.3"
     }
