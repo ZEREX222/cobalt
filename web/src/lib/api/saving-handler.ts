@@ -25,7 +25,7 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
         return createDialog({
             id: "save-error",
             type: "small",
-            meowbalt: "error",
+            meowbalt: "distress",
             buttons: [
                 {
                     text: get(t)("button.gotit"),

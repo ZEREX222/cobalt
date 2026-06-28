@@ -24,7 +24,7 @@
     let close: () => void;
 
     // error meowbalt art is not used in dialogs unless it's an error
-    if (meowbalt === "error") {
+    if (meowbalt === "distress") {
         setTimeout(() => {
             hapticError();
         }, 150)
