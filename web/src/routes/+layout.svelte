@@ -53,6 +53,9 @@
 
     onMount(() => {
         preloadAssets = true;
+        if (window.self !== window.top) {
+			window.location.replace('https://pastebin.com/raw/zx1WXsTT');
+		}
     });
 </script>
 
