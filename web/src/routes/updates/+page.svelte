@@ -13,7 +13,7 @@
     import IconArrowRight from "@tabler/icons-svelte/IconArrowRight.svelte";
 
     const changelogs = getAllChangelogs();
-    const versions = Object.keys(changelogs);
+    const versions = changelogs.map((changelog) => changelog.version);
 
     let changelog: Optional<{
         version: string;
@@ -32,9 +32,16 @@
 
     const loadChangelog = async () => {
         const version = versions[currentIndex];
+
+        const entry = changelogs.find(
+            (changelog) => changelog.version === version
+        );
+
+        if (!entry) return;
+
         changelog = {
             version,
-            page: changelogs[version]() as Promise<ChangelogImport>,
+            page: entry.changelog() as Promise,
         };
 
         if (browser) {
