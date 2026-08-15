@@ -106,7 +106,7 @@ export default function instagram(obj) {
         return data.json();
     }
 
-    async function getMedia(id, { cookie, token } = {}) {
+    async function getMediaId(id, { cookie, token } = {}) {
         const oembedURL = new URL('https://i.instagram.com/api/v1/oembed/');
         oembedURL.searchParams.set('url', `https://www.instagram.com/p/${id}/`);
 
@@ -119,7 +119,7 @@ export default function instagram(obj) {
             dispatcher
         }).then(r => r.json()).catch(() => {});
 
-        return oembed;
+        return oembed?.media_id;
     }
 
     async function requestMobileApi(mediaId, { cookie, token } = {}) {
@@ -136,26 +136,21 @@ export default function instagram(obj) {
     }
 
     async function requestHTML(id, cookie) {
-        try {
-            const data = await fetch(`https://www.instagram.com/p/${id}/embed/captioned/`, {
-                headers: {
-                    ...embedHeaders,
-                    cookie
-                },
-                dispatcher
-            }).then(r => r.text()).catch(() => {
-            });
+        const data = await fetch(`https://www.instagram.com/p/${id}/embed/captioned/`, {
+            headers: {
+                ...embedHeaders,
+                cookie
+            },
+            dispatcher
+        }).then(r => r.text()).catch(() => {});
 
-            let embedData = JSON.parse(data?.match(/"init",\[\],\[(.*?)\]\],/)[1]);
+        let embedData = JSON.parse(data?.match(/"init",\[\],\[(.*?)\]\],/)[1]);
 
-            if (!embedData || !embedData?.contextJSON) return false;
+        if (!embedData || !embedData?.contextJSON) return false;
 
-            embedData = JSON.parse(embedData.contextJSON);
-            return embedData;
-        }catch {
-            return null;
-        }
+        embedData = JSON.parse(embedData.contextJSON);
 
+        return embedData;
     }
 
     async function getGQLParams(id, cookie) {
@@ -218,7 +213,6 @@ export default function instagram(obj) {
     }
 
     async function requestGQL(id, cookie) {
-        try{
         const { headers, body } = await getGQLParams(id, cookie);
 
         const req = await fetch('https://www.instagram.com/graphql/query', {
@@ -242,7 +236,7 @@ export default function instagram(obj) {
                     hoisted_reply_id: null
                 }),
                 server_timestamps: true,
-                doc_id: '8845758582119845'
+                doc_id: '28179163761674058'
             }).toString()
         });
 
@@ -251,10 +245,6 @@ export default function instagram(obj) {
                         .then(r => r.data)
                         .catch(() => null)
         };
-        }
-        catch {
-            return null;
-        }
     }
 
     async function getErrorContext(id) {
@@ -315,6 +305,8 @@ export default function instagram(obj) {
         if (sidecar) {
             const picker = sidecar.edges.filter(e => e.node?.display_url)
                 .map((e, i) => {
+                    // if extracted from HTML embed, the first GraphVideo node from a "multipost" post sometimes
+                    // reports `is_video` without a `video_url`. this also breaks the official Instagram "multipost" embed.
                     const type = e.node?.is_video && e.node?.video_url ? "video" : "photo";
 
                     let url;
@@ -425,8 +417,8 @@ export default function instagram(obj) {
 
     async function getPost(id, alwaysProxy) {
         const hasData = (data) => data
-                                    && data.gql_data !== null
-                                    && data?.gql_data?.xdt_shortcode_media !== null;
+                                    && data.gql_data != null
+                                    && (data?.gql_data?.xdt_shortcode_media != null || data?.gql_data?.shortcode_media != null);
         let data, result;
         try {
             const cookie = getCookie('instagram');
@@ -435,13 +427,9 @@ export default function instagram(obj) {
             const token = bearer?.values()?.token;
 
             // get media_id for mobile api, three methods
-            let media = await getMedia(id);
-            if (!media?.media_id && token) media = await getMedia(id, { token });
-            if (!media?.media_id && cookie) media = await getMedia(id, { cookie });
-            if(media.title.includes('Restricted')) {
-                return { error: "content.post.age" }
-            }
-            let media_id = media?.media_id;
+            let media_id = await getMediaId(id);
+            if (!media_id && token) media_id = await getMediaId(id, { token });
+            if (!media_id && cookie) media_id = await getMediaId(id, { cookie });
 
             // mobile api (bearer)
             if (media_id && token) data = await requestMobileApi(media_id, { token });
@@ -450,13 +438,13 @@ export default function instagram(obj) {
             if (media_id && !hasData(data)) data = await requestMobileApi(media_id);
             if (media_id && cookie && !hasData(data)) data = await requestMobileApi(media_id, { cookie });
 
-            // html embed (no cookie, cookie)
-            if (!hasData(data)) data = await requestHTML(id);
-            if (!hasData(data) && cookie) data = await requestHTML(id, cookie);
-
             // web app graphql api (no cookie, cookie)
             if (!hasData(data)) data = await requestGQL(id);
             if (!hasData(data) && cookie) data = await requestGQL(id, cookie);
+
+            // html embed (no cookie, cookie)
+            if (!hasData(data)) data = await requestHTML(id);
+            if (!hasData(data) && cookie) data = await requestHTML(id, cookie);
         } catch {}
 
         if (!hasData(data)) {
