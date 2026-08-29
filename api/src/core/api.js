@@ -210,7 +210,8 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
             req.rateLimitKey = hashHmac(token, 'rate');
             req.authType = "session";
-        } catch {
+        } catch (e) {
+            console.log(e);
             return fail(res, "error.api.generic");
         }
         next();
@@ -252,7 +253,8 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
         try {
             res.json(jwt.generate(getIP(req, 32)));
-        } catch {
+        } catch (e) {
+            console.log(e);
             return fail(res, "error.api.generic");
         }
     });
@@ -295,7 +297,8 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
             });
 
             res.status(result.status).json(result.body);
-        } catch {
+        } catch (e) {
+            console.log(e);
             fail(res, "error.api.generic");
         }
     });
