@@ -5,7 +5,7 @@
 </script>
 
 <div id="placeholder-container" class="center-column-container">
-    <Meowbalt emotion="smile" />
+    <Meowbalt emotion="distress" />
     <div tabindex="-1" data-first-focus>
         {`${pageName} page is not ready yet!`}
     </div>

@@ -25,5 +25,6 @@
     "clear_cache": "clear cache",
     "remove": "remove",
     "retry": "retry",
-    "delete": "delete"
+    "delete": "delete",
+    "try_another": "try another instance"
 }

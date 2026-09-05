@@ -82,5 +82,6 @@ export const testers = {
         (pattern.ownerId?.length <= 10 && pattern.videoId?.length <= 10 && pattern.videoId?.accessKey <= 18),
 
     "youtube": pattern =>
-        pattern.id?.length <= 11,
+        pattern.id?.length <= 11
+        || pattern.postId?.length <= 40,
 }

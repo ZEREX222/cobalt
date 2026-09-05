@@ -14,7 +14,12 @@ async function getSpotlight(id) {
         return { error: "fetch.fail" };
     }
 
-    const videoURL = html.match(SPOTLIGHT_VIDEO_REGEX)?.[1];
+    const nextDataString = html.match(NEXT_DATA_REGEX)?.[1];
+
+    if (!nextDataString) return;
+
+    const data = JSON.parse(nextDataString);
+    const videoURL = data?.props?.pageProps?.videoMetadata?.contentUrl;
 
     if (videoURL && new URL(videoURL).hostname.endsWith(".sc-cdn.net")) {
         return {

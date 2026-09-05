@@ -53,9 +53,6 @@ same content can be downloaded via dev tools of any modern web browser.
 ### contributing
 if you're considering contributing to cobalt, first of all, thank you! check the [contribution guidelines here](/CONTRIBUTING.md) before getting started, they'll help you do your best right away.
 
-### thank you
-cobalt is sponsored by [royalehosting.net](https://royalehosting.net/?partner=cobalt). a part of our infrastructure is hosted on their network. we really appreciate their kindness and support!
-
 ### licenses
 for relevant licensing information, see the [api](api/README.md) and [web](web/README.md) READMEs.
 unless specified otherwise, the remainder of this repository is licensed under [AGPL-3.0](LICENSE).

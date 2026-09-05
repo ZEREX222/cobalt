@@ -22,6 +22,10 @@ function transformObject(streamInfo, hlsObject) {
         fullUrl = new URL(hlsObject.uri, streamInfo.url);
     }
 
+    if (streamInfo.service === "loom") {
+        fullUrl.search = new URL(streamInfo.url).search;
+    }
+
     if (fullUrl.hostname !== '127.0.0.1') {
         hlsObject.uri = createInternalStream(fullUrl.toString(), streamInfo);
 
@@ -60,7 +64,8 @@ export function isHlsResponse(req, streamInfo) {
     return HLS_MIME_TYPES.includes(req.headers['content-type'])
         // bluesky's cdn responds with wrong content-type for the hls playlist,
         // so we enforce it here until they fix it
-        || (streamInfo.service === 'bsky' && streamInfo.url.endsWith('.m3u8'));
+        || (streamInfo.service === 'bsky' && streamInfo.url.endsWith('.m3u8'))
+        || HLS_MIME_TYPES.some(type => req.headers['content-type'].startsWith(type))
 }
 
 export async function handleHlsPlaylist(streamInfo, req, res) {
@@ -73,6 +78,7 @@ export async function handleHlsPlaylist(streamInfo, req, res) {
 
     hlsPlaylist = HLS.stringify(hlsPlaylist);
 
+    res.setHeader('content-type', 'application/vnd.apple.mpegurl');
     res.send(hlsPlaylist);
 }
 
@@ -127,6 +133,11 @@ export async function probeInternalHLSTunnel(streamInfo) {
                 segmentUrl = new URL(randomSegment.uri);
             } else {
                 segmentUrl = new URL(randomSegment.uri, streamInfo.url);
+
+                // loom quirk: keep query params
+                if (streamInfo.service === "loom") {
+                    segmentUrl.search = new URL(streamInfo.url).search;
+                }
             }
 
             const segmentSize = await getSegmentSize(segmentUrl, config) / randomSegment.duration;

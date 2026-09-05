@@ -31,7 +31,7 @@ export const runFFmpegWorker = async (
     const startCheck = setInterval(async () => {
         bumpAttempts++;
 
-        if (bumpAttempts === 10) {
+        if (bumpAttempts === 20) {
             startAttempts++;
             if (startAttempts <= 10) {
                 killWorker(worker, unsubscribe, startCheck);

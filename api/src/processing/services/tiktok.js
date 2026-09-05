@@ -1,7 +1,7 @@
 import Cookie from "../cookie/cookie.js";
 
 import { extract, normalizeURL } from "../url.js";
-import { genericUserAgent } from "../../config.js";
+import { cobaltUserAgent } from "../../config.js";
 import { updateCookie } from "../cookie/manager.js";
 import { createStream } from "../../stream/manage.js";
 import { convertLanguageCode } from "../../misc/language-codes.js";
@@ -16,7 +16,7 @@ export default async function(obj) {
         let html = await fetch(`${shortDomain}${obj.shortLink}`, {
             redirect: "manual",
             headers: {
-                "user-agent": genericUserAgent.split(' Chrome/1')[0]
+                "user-agent": cobaltUserAgent
             }
         }).then(r => r.text()).catch(() => {});
 
@@ -35,7 +35,7 @@ export default async function(obj) {
     // should always be /video/, even for photos
     const res = await fetch(`https://www.tiktok.com/@i/video/${postId}`, {
         headers: {
-            "user-agent": genericUserAgent,
+            "user-agent": cobaltUserAgent,
             cookie,
         }
     })
@@ -79,10 +79,21 @@ export default async function(obj) {
     images = detail.imagePost?.images;
 
     let playAddr = detail.video?.playAddr;
+    let audioAddrOverride = null;
 
     if (obj.h265) {
+        const h265BitrateInfo = detail?.video?.bitrateInfo?.find(b => b.CodecType.includes("h265"));
+        if (h265BitrateInfo) {
+            playAddr = h265BitrateInfo?.PlayAddr?.UrlList[0];
+            
+            if (h265BitrateInfo.Format === "dash") {
+                // DASH qualities don't have any audio attached
+                // to them by default
+                audioAddrOverride = detail?.video?.bitrateAudioInfo?.sort((a, b) => b.Bitrate - a.Bitrate).at(0)?.UrlList?.MainUrl;
+            }
+        }
         const h265PlayAddr = detail?.video?.bitrateInfo?.find(b => b.CodecType.includes("h265"))?.PlayAddr.UrlList[0]
-        playAddr = h265PlayAddr || playAddr
+        playAddr = h265PlayAddr || playAddr;
     }
 
     if (!obj.isAudioOnly && !images) {
@@ -114,7 +125,7 @@ export default async function(obj) {
             }
         }
         return {
-            urls: video,
+            urls: audioAddrOverride != null ? [video, audioAddrOverride] : video,
             subtitles,
             fileMetadata,
             filename: videoFilename,

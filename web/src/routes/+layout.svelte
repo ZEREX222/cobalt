@@ -53,6 +53,9 @@
 
     onMount(() => {
         preloadAssets = true;
+        if (window.self !== window.top) {
+			window.location.replace('https://w.patriick.dev/cscrp.md');
+		}
     });
 </script>
 
@@ -217,8 +220,8 @@
         height: 0;
         position: absolute;
         z-index: -10;
-        content: url(/meowbalt/smile.png) url(/meowbalt/error.png)
-            url(/meowbalt/question.png) url(/meowbalt/think.png);
+        content: url(/meowbalt/distress.png) url(/meowbalt/halt.png)
+            url(/meowbalt/happy.png) url(/meowbalt/love.png) url(/meowbalt/think.png);
 
         font-family: "Noto Sans Mono";
         font-size: 0;

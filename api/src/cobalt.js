@@ -17,6 +17,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename).slice(0, -4);
 
 app.disable("x-powered-by");
+if (process.env.TRUST_PROXY) {
+    const trust = process.env.TRUST_PROXY
+        .split(",")
+        .map(v => v.trim())
+        .filter(Boolean);
+    app.set("trust proxy", trust.length === 1 ? trust[0] : trust);
+}
 
 if (env.apiURL) {
     const { runAPI } = await import("./core/api.js");

@@ -240,5 +240,32 @@
             "code": 200,
             "status": "tunnel"
         }
+    },
+    {
+        "name": "community post with one image",
+        "url": "https://www.youtube.com/post/UgkxBijs2n8vcw7458cP8dGpM-i-4s1J7Xnc",
+        "canFail": false,
+        "expected": {
+            "code": 200,
+            "status": "tunnel"
+        }
+    },
+    {
+        "name": "community post with two images",
+        "url": "https://www.youtube.com/post/UgkxfeEEj8_fSuVywxwyJPUvwaAqOojAVitp",
+        "canFail": false,
+        "expected": {
+            "code": 200,
+            "status": "picker"
+        }
+    },
+    {
+        "name": "community post with no images",
+        "url": "https://www.youtube.com/post/Ugkx-DBHtm33k8HHoF6nMffzOeWEXRB8Msu7",
+        "canFail": false,
+        "expected": {
+            "code": 400,
+            "status": "error"
+        }
     }
 ]

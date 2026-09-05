@@ -16,7 +16,7 @@ async function findClientID() {
         }
 
         let clientid = sc.match(/"hydratable"\s*:\s*"apiClient"\s*,\s*"data"\s*:\s*\{\s*"id"\s*:\s*"([^"]+)"/)?.[1];
-        if (!clientid) {
+        if (!clientid) { // if its not in the html, loop through scripts until we find it
             const scripts = sc.matchAll(/<script.+src="(.+)">/g);
 
             for (let script of scripts) {
@@ -35,6 +35,8 @@ async function findClientID() {
                 }
             }
         }
+
+        if (!clientid) return;
 
         cachedID.version = scVersion;
         cachedID.id = clientid;
@@ -135,7 +137,15 @@ export default async function(obj) {
                      .then(async r => new URL((await r.json()).url))
                      .catch(() => {});
 
-    if (!file) return { error: "fetch.empty" };
+    if (!file) {
+        const hasAnyDRMTranscodings = json.media.transcodings
+            .some(transcoding => transcoding?.format?.protocol?.endsWith("encrypted-hls"));
+        if (hasAnyDRMTranscodings) {
+            return { error: "soundcloud.maybe_drm" };
+        }
+
+        return { error: "fetch.empty" };
+    }
 
     const artist = json.user?.username?.trim();
     const fileMetadata = {

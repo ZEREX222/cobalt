@@ -48,7 +48,7 @@
 <DialogContainer {id} {dismissable} bind:close>
     <div class="dialog-body popup-body">
         <div class="meowbalt-container">
-            <Meowbalt emotion="question" />
+            <Meowbalt emotion="think" />
         </div>
 
         <div class="dialog-inner-container">

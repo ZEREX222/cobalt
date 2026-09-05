@@ -15,6 +15,7 @@
     import { savingHandler } from "$lib/api/saving-handler";
     import { pasteLinkFromClipboard } from "$lib/clipboard";
     import { turnstileEnabled, turnstileSolved } from "$lib/state/turnstile";
+    import { createDialog } from "$lib/state/dialogs";
 
     import type { Optional } from "$lib/types/generic";
     import type { DownloadModeOption } from "$lib/types/settings";
@@ -32,6 +33,7 @@
     import IconMusic from "$components/icons/Music.svelte";
     import IconSparkles from "$components/icons/Sparkles.svelte";
     import IconClipboard from "$components/icons/Clipboard.svelte";
+    import IconDonate from "$components/icons/Donate.svelte";
 
     let linkInput: Optional<HTMLInputElement>;
 
@@ -151,6 +153,9 @@
     <div id="instance-label">
         {$t("save.label.community_instance")}
     </div>
+    <div id="instance-label">
+        {$t("save.label.quick_info")}
+    </div>
 {/if}
 
 <div id="omnibox">
@@ -224,6 +229,44 @@
                 {$t("save.mute")}
             </SettingsButton>
         </Switcher>
+
+        <ActionButton
+            id="paste"
+            click={() =>
+                createDialog({
+                    id: "donate",
+                    type: "small",
+                    meowbalt: "love",
+                    bodyText: $t("save.donate_body"),
+                    buttons: [
+                        {
+                            text: "cobalt.tools",
+                            main: true,
+                            action: () => {
+                                window.open(
+                                    "https://cobalt.tools/donate",
+                                    "_blank"
+                                );
+                            }
+                        },
+                        {
+                            text: "canine.tools",
+                            main: false,
+                            action: () => {
+                                window.open(
+                                    "https://canine.tools/donate",
+                                    "_blank"
+                                );
+                            }
+                        }
+                    ]
+                })
+            }
+        >
+            <IconDonate />
+            <span id="paste-desktop-text">support us</span>
+            <span id="paste-mobile-text">support us</span>
+        </ActionButton>
 
         <ActionButton id="paste" click={pasteClipboard}>
             <IconClipboard />
@@ -357,6 +400,7 @@
         font-size: 13px;
         color: var(--gray);
         font-weight: 500;
+        text-align: center;
     }
 
     @media screen and (max-width: 440px) {

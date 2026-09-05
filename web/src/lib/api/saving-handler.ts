@@ -25,12 +25,19 @@ export const savingHandler = async ({ url, request, oldTaskId }: SavingHandlerAr
         return createDialog({
             id: "save-error",
             type: "small",
-            meowbalt: "error",
+            meowbalt: "distress",
             buttons: [
                 {
                     text: get(t)("button.gotit"),
                     main: true,
                     action: () => {},
+                },
+                {
+                    text: get(t)("button.try_another"),
+                    main: false,
+                    action: () => {
+                        window.open("https://cobalt.directory", "_blank");
+                    },
                 },
             ],
             bodyText: errorText,

@@ -51,7 +51,7 @@
 </script>
 
 <div class="open-file-container" class:dragged-over={draggedOver}>
-    <Meowbalt emotion="question" />
+    <Meowbalt emotion="think" />
 
     <button class="button open-file-button" onclick={openFile}>
         <div class="dashed-stroke">

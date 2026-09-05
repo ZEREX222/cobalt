@@ -1,6 +1,6 @@
 <script lang="ts">
     import { t } from "$lib/i18n/translations";
-    import type { MeowbaltEmotions } from "$lib/types/meowbalt";
+    import { emotions, type MeowbaltEmotions } from "$lib/types/meowbalt";
 
     type Props = {
         emotion: MeowbaltEmotions;
@@ -10,13 +10,19 @@
     const { emotion, forceLoaded }: Props = $props();
 
     let loaded = $state(false);
+
+    const real = $derived(
+        emotion === "random"
+            ? emotions[Math.floor(Math.random() * emotions.length)]
+            : emotion
+    );
 </script>
 
 <img
-    class="meowbalt {emotion}"
+    class="meowbalt {real}"
     class:loaded={loaded || forceLoaded}
     onload={() => (loaded = true)}
-    src="/meowbalt/{emotion}.png"
+    src="/meowbalt/{real}.png"
     height="152"
     alt={$t("general.meowbalt")}
     aria-hidden="true"
@@ -33,17 +39,5 @@
 
     .meowbalt.loaded {
         opacity: 1;
-    }
-
-    .error {
-        height: 160px;
-    }
-
-    .question {
-        height: 140px;
-    }
-
-    .error {
-        margin-left: 25px;
     }
 </style>
