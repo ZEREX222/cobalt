@@ -32,6 +32,7 @@ import loom from "./services/loom.js";
 import facebook from "./services/facebook.js";
 import bluesky from "./services/bluesky.js";
 import newgrounds from "./services/newgrounds.js";
+import medal from "./services/medal.js";
 
 let freebind;
 
@@ -248,6 +249,13 @@ export default async function({ host, patternMatch, params, authType }) {
                 r = await loom({
                     id: patternMatch.id,
                     subtitleLang,
+                });
+                break;
+            
+            case "medal":
+                r = await medal({
+                    game: patternMatch.game,
+                    id: patternMatch.id,
                 });
                 break;
 

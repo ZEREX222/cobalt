@@ -25,6 +25,9 @@ export const testers = {
     "loom": pattern =>
         pattern.id?.length <= 32,
 
+    "medal": pattern =>
+        pattern.id?.length <= 32,
+
     "newgrounds": pattern =>
         pattern.id?.length <= 12 ||
         pattern.audioId?.length <= 12,
