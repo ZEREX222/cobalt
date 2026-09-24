@@ -61,6 +61,12 @@ export const services = {
     loom: {
         patterns: ["share/:id", "embed/:id"],
     },
+    medal: {
+        patterns: [
+            "games/:game/clips/:id"
+        ],
+        tld: "tv",
+    },
     ok: {
         patterns: [
             "video/:id",
