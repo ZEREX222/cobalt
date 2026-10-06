@@ -1,0 +1,11 @@
+[
+	{
+		"name": "regular clip",
+		"url": "https://medal.tv/games/minecraft/clips/kzi8tPp7zLyDrrxEk",
+		"params": {},
+		"expected": {
+			"code": 200,
+			"status": "redirect"
+		}
+	}
+]
