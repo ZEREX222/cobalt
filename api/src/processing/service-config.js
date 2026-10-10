@@ -158,7 +158,8 @@ export const services = {
             ":user/photo/:postId",
             "v/:postId.html"
         ],
-        subdomains: ["vt", "vm", "m", "t"],
+        subdomains: ["vt", "vm", "m", "t", "pro"],
+        altDomains: ["tt.site"],
     },
     tumblr: {
         patterns: [
