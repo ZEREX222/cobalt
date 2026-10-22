@@ -35,6 +35,8 @@ export function createStream(obj) {
             headers: obj.headers,
 
             metadata: obj.fileMetadata || false,
+            cover: obj.cover,
+            cropCover: obj.cropCover || false,
 
             audioBitrate: obj.audioBitrate,
             audioCopy: !!obj.audioCopy,
@@ -136,7 +138,7 @@ export function getInternalTunnelFromURL(url) {
     return getInternalTunnel(id);
 }
 
-export function createInternalStream(url, obj = {}, isSubtitles) {
+export function createInternalStream(url, obj = {}, isSpecial) {
     assert(typeof url === 'string');
 
     let dispatcher = obj.dispatcher;
@@ -157,8 +159,8 @@ export function createInternalStream(url, obj = {}, isSubtitles) {
         headers = new Map(Object.entries(obj.headers));
     }
 
-    // subtitles don't need special treatment unlike big media files
-    const service = isSubtitles ? `${obj.service}-subtitles` : obj.service;
+    // subtitles & covers don't need special treatment unlike big media files
+    const service = isSpecial ? `${obj.service}-special` : obj.service;
 
     internalStreamCache.set(streamID, {
         url,
@@ -277,8 +279,16 @@ function wrapStream(streamInfo) {
         streamInfo.subtitles = createInternalStream(
             streamInfo.subtitles,
             streamInfo,
-            /*isSubtitles=*/true
+            /*isSpecial=*/true
         );
+    }
+
+    if (streamInfo.cover) {
+        streamInfo.cover = createInternalStream(
+            streamInfo.cover,
+            streamInfo,
+            /*isSpecial*/true,
+        )
     }
 
     return streamInfo;
