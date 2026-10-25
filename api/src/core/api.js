@@ -132,8 +132,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         } else if (authHeader.includes("api-key")) {
             authType = "key";
         }
-
-        addApiRequest(authType);
+        
         next();
     });
 
@@ -212,6 +211,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
     app.use('/', (err, _, res, next) => {
         if (err) {
+            console.log(err);
             const { status, body } = createResponse("error", {
                 code: "error.api.invalid_body",
             });

@@ -121,9 +121,6 @@ export const loadEnvs = (env = process.env) => {
         allServices,
         enabledServices,
 
-        metrics: env.METRICS_ENABLED === "1",
-        metricsPort: env.METRICS_PORT,
-
         useSystemFFmpeg: env.USE_SYSTEM_FFMPEG === "1",
 
         customInnertubeClient: env.CUSTOM_INNERTUBE_CLIENT,

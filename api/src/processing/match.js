@@ -329,10 +329,6 @@ export default async function({ host, patternMatch, params, authType }) {
             localProcessing = "preferred";
         }
 
-        // this is probably the wrong spot to do this
-        // but if we got this far without issues then we probably successful
-        if (metrics) addServiceSuccessful(host);
-
         return matchAction({
             r,
             host,
