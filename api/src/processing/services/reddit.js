@@ -2,6 +2,8 @@ import { resolveRedirectingURL } from "../url.js";
 import { genericUserAgent, env } from "../../config.js";
 import { getCookie, updateCookieValues } from "../cookie/manager.js";
 
+const GQL_POST_INFO_BY_ID = "029254c4fff5c4ad291436e86b748eba21f70ac9aadb0014d4be6daee9b07255";
+
 let anonymousAccessToken;
 async function fetchAnonymousAccessToken({ dispatcher }) {
     if (anonymousAccessToken && anonymousAccessToken?.expiry < Date.now()) {
@@ -73,40 +75,43 @@ async function getAccessToken() {
     return access_token;
 }
 
-export default async function(obj) {
-    let params = obj;
-    const accessToken = await getAccessToken() ?? await fetchAnonymousAccessToken({
-        dispatcher: obj.dispatcher,
-    });
+async function queryGQL(operation, operationHash, variables, accessToken, dispatcher) {
+    const response = await fetch("https://gql-fed.reddit.com", {
+        method: "POST",
+        headers: {
+            "User-Agent": genericUserAgent,
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+            extensions: {
+                persistedQuery: {
+                    sha256Hash: operationHash,
+                    version: 1,
+                }
+            },
+            operationName: operation,
+            variables,
+        }),
+        dispatcher,
+    }).then(r => r.json()).catch(() => {});
+    if (!response) return;
+
+    return response;
+}
+
+async function fetchJsonAPI(params, accessToken, dispatcher) {
     const headers = {
         'user-agent': genericUserAgent,
         authorization: accessToken && `Bearer ${accessToken}`,
-        accept: 'application/json'
+        accept: 'application/json',
     };
 
-    if (params.shortId) {
-        params = await resolveRedirectingURL(
-            `https://www.reddit.com/video/${params.shortId}`,
-            obj.dispatcher, headers
-        );
-    }
-
-    if (!params.id && params.shareId) {
-        params = await resolveRedirectingURL(
-            `https://www.reddit.com/r/${params.sub}/s/${params.shareId}`,
-            obj.dispatcher, headers
-        );
-    }
-
-    if (!params?.id) return { error: "fetch.short_link" };
-
-    const url = new URL(`https://www.reddit.com/comments%2f${params.id}.json`);
-
-    if (accessToken) url.hostname = 'oauth.reddit.com';
+    const url = new URL(`https://oauth.reddit.com/comments/${params.id}.json`);
 
     let data = await fetch(url, { 
         headers,
-        dispatcher: obj.dispatcher,
+        dispatcher,
     }).then(r => r.json()).catch(() => {});
 
     if (!data || !Array.isArray(data)) {
@@ -172,4 +177,134 @@ export default async function(obj) {
         audioFilename: `reddit_${sourceId}_audio`,
         filename: `reddit_${sourceId}.mp4`
     }
+}
+
+async function fetchFromGQL(params, accessToken, dispatcher) {
+    const downloadName = params.sub || params.user ? `${String(params.sub || params.user).toLowerCase()}_${params.id}` : params.id;
+
+    // user posts are prefixed with t2, the ones on subreddits are prefixed with t3_
+    const gqlPrefix = params.user ? "t2_" : "t3_";
+    const data = await queryGQL("PostInfoById", GQL_POST_INFO_BY_ID, {
+        id: gqlPrefix + params.id,
+    }, accessToken, dispatcher);
+
+    const postData = data?.data?.postInfoById;
+    if (!postData) return { error: "fetch.empty" };
+
+    // check for videos
+    if (postData.media?.typeHint === "VIDEO") {
+        // there's 3 relevant types of media we can check for here:
+        // - packagedMedia, seems to have the highest quality media AND is just a regular mp4 file
+        // - download, 720p only? shouldn't bother tbh, but at least its premerged
+        // - streaming, regular hls, i guess its usable but hls is my mortal enemy
+        if (postData.media.packagedMedia?.muxedMp4s) {
+            let pm = postData.media.packagedMedia.muxedMp4s;
+            const highestQuality = pm.highest ?? pm.high ?? pm.medium ?? pm.low;        
+            if (highestQuality?.url) {
+                if (highestQuality?.duration > env.durationLimit) return { error: "content.too_long" };
+                return {
+                    typeId: "redirect",
+                    urls: highestQuality.url,
+                    filename: `reddit_${downloadName}.mp4`,
+                };
+            }
+        }
+
+        if (postData.media.streaming?.hlsUrl) {
+            if (postData.media.streaming.duration > env.durationLimit) return { error: "content.too_long" };
+
+            return {
+                urls: postData.media.streaming.hlsUrl,
+                isHLS: true,
+                filename: `reddit_${downloadName}.mp4`,
+            };
+        }
+    }
+
+    // sometimes posts themselves can be "deleted", but their videos are still there
+    if (postData.url?.startsWith("https://v.redd.it/")) {
+        // gql sadly doesn't give us a media url in this case, so.. we'll need to try a few resolutions
+        let videoUrl;
+        for (const res of [ 1080, 720, 480, 360 ]) {
+            const response = await fetch(`${postData.url}/DASH_${res}.mp4`, { method: "HEAD", dispatcher });
+            if (response.ok) {
+                videoUrl = response.url;
+                break;
+            }
+        }
+
+        if (!videoUrl) return { error: "fetch.empty" };
+        
+        let audioUrl;
+        let audioProbe = await fetch(postData.url + "/DASH_audio.mp4", { method: "HEAD", dispatcher });
+        if (audioProbe.ok) {
+            audioUrl = audioProbe.url;
+        }
+
+        return {
+            typeId: "tunnel",
+            type: "merge",
+            urls: audioUrl ? [videoUrl, audioUrl] : videoUrl,
+            audioFilename: `reddit_${downloadName}_audio`,
+            filename: `reddit_${downloadName}.mp4`,
+        };
+    }
+
+    // gifs
+    if (postData.url?.startsWith("https://i.redd.it") && postData.url?.endsWith(".gif")) {
+        return {
+            typeId: "redirect",
+            urls: postData.url,
+            filename: `reddit_${downloadName}.gif`
+        }
+    }
+
+    if (postData.media?.typeHint == "GIFVIDEO" && postData.media.animated) {
+        const pm = postData.media.animated;
+        const bestQuality = pm.mp4_source ?? pm.mp4_xxxlarge ?? pm.mp4_xxlarge ?? pm.mp4_xlarge 
+            ?? pm.mp4_large ?? pm.mp4_medium ?? pm.mp4_small;
+        
+        if (bestQuality.url) {
+            return {
+                typeId: "redirect",
+                urls: bestQuality.url,
+                filename: `reddit_${downloadName}.gif`
+            }
+        }
+    }
+
+    return { error: "fetch.empty" };
+}
+
+export default async function(obj) {
+    let params = obj;
+
+    const accessToken = await getAccessToken();
+    const anonymousAccessToken = accessToken || await fetchAnonymousAccessToken({
+        dispatcher: obj.dispatcher,
+    });
+
+    const resolvingHeaders = {
+        "User-Agent": genericUserAgent,
+        "Authorization": `Bearer ${anonymousAccessToken}`,
+    };
+
+    if (params.shortId) {
+        params = await resolveRedirectingURL(
+            `https://www.reddit.com/video/${params.shortId}`,
+            obj.dispatcher, resolvingHeaders
+        );
+    }
+
+    if (!params.id && params.shareId) {
+        params = await resolveRedirectingURL(
+            `https://www.reddit.com/r/${params.sub}/s/${params.shareId}`,
+            obj.dispatcher, resolvingHeaders
+        );
+    }
+
+    if (!params?.id) return { error: "fetch.short_link" };
+    
+    if (accessToken) return fetchJsonAPI(params, accessToken, obj.dispatcher);
+    else return fetchFromGQL(params, anonymousAccessToken, obj.dispatcher);
 }
