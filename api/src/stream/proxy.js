@@ -4,9 +4,6 @@ import { create as contentDisposition } from "content-disposition-header";
 import { destroyInternalStream } from "./manage.js";
 import { getHeaders, closeRequest, closeResponse, pipe } from "./shared.js";
 
-import { metrics } from "../core/api.js";
-import { addServiceDataDownload } from "../util/metrics.js";
-
 const defaultAgent = new Agent();
 
 export default async function (streamInfo, res) {
@@ -33,8 +30,6 @@ export default async function (streamInfo, res) {
         });
 
         res.status(statusCode);
-
-        if (metrics) addServiceDataDownload(streamInfo.service, Number(headers['content-length']));
 
         for (const headerName of ['accept-ranges', 'content-type', 'content-length']) {
             if (headers[headerName]) {

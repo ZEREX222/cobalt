@@ -3,8 +3,6 @@ import ipaddr from "ipaddr.js";
 
 import { apiSchema } from "./schema.js";
 import { createProxyTunnels, createStream } from "../stream/manage.js";
-import { addServiceResponse, addServiceError } from "../util/metrics.js";
-import { metrics } from "../core/api.js";
 
 export function createResponse(responseType, responseData) {
     const internalError = (code) => {
@@ -103,17 +101,6 @@ export function createResponse(responseType, responseData) {
 
             default:
                 throw "unreachable"
-        }
-
-        if (metrics) {
-            addServiceResponse(responseType);
-            if (responseType == "error") {
-                if (responseData.code.toString().includes("youtube.login")) {
-                    addServiceError("youtube", response.error.code);
-                } else {
-                    addServiceError(response.error?.context?.service ?? "unknown", response.error.code);
-                }
-            }
         }
 
         return {
