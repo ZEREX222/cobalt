@@ -36,7 +36,7 @@ importers:
         version: 4.22.3(supports-color@7.2.0)
       express-rate-limit:
         specifier: ^8.5.2
-        version: 8.7.1(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)
+        version: 8.7.2(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)
       ffmpeg-static:
         specifier: ^5.3.0
         version: 5.3.0(supports-color@7.2.0)
@@ -57,7 +57,7 @@ importers:
         version: 27.4.0(supports-color@7.2.0)
       mime:
         specifier: ^4.1.0
-        version: 4.1.1
+        version: 4.1.2
       nanoid:
         specifier: ^5.1.15
         version: 5.1.16
@@ -82,7 +82,7 @@ importers:
         version: 0.2.3
       rate-limit-redis:
         specifier: ^4.3.1
-        version: 4.3.1(express-rate-limit@8.7.1(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0))
+        version: 4.3.1(express-rate-limit@8.7.2(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0))
       redis:
         specifier: ^4.7.1
         version: 4.7.1
@@ -159,7 +159,7 @@ importers:
         version: 0.12.8(svelte@5.57.3(@typescript-eslint/types@8.72.1))
       mime:
         specifier: ^4.1.0
-        version: 4.1.1
+        version: 4.1.2
       svelte:
         specifier: ^5.56.3
         version: 5.57.3(@typescript-eslint/types@8.72.1)
@@ -1382,8 +1382,8 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
-  express-rate-limit@8.7.1:
-    resolution: {integrity: sha512-2FXbqkygil3mZiXzEtM0IjE/UBmBNot0J1GEVrJT4JbrvwOSoEtqtO+wHbiMQELWe1eNvHoYRg2dkjOid+6JkA==}
+  express-rate-limit@8.7.2:
+    resolution: {integrity: sha512-U1ScocxDD9WI09LaBVypvNkOtNR5yWAmZLkuKJdAzIchA4YKFYF6GT5IKER7epG58oXtjvGlV0/6ii0F83EyZg==}
     engines: {node: '>= 16'}
     peerDependencies:
       express: '>= 4.11'
@@ -1724,8 +1724,8 @@ packages:
     engines: {node: '>=4'}
     hasBin: true
 
-  mime@4.1.1:
-    resolution: {integrity: sha512-YAApRsTpM2+gnUFHhRNGfkX8NK0V5xj1nyQLufGlwEI+eX4xRsTcel2IXDuMEGSGjBvzykNW4VuoEACgwYe7BQ==}
+  mime@4.1.2:
+    resolution: {integrity: sha512-ikRzZ2RwbUVDyL9SsU0f2Phcmav4yq5r8faH5ZZKHtOZrMBLnrQOrj0uvqZ5R1uQnj+RO7Wcklw/lAf81mP9LQ==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -3413,7 +3413,7 @@ snapshots:
 
   etag@1.8.1: {}
 
-  express-rate-limit@8.7.1(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0):
+  express-rate-limit@8.7.2(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0):
     dependencies:
       debug: 4.4.3(supports-color@7.2.0)
       express: 4.22.3(supports-color@7.2.0)
@@ -3794,7 +3794,7 @@ snapshots:
 
   mime@1.6.0: {}
 
-  mime@4.1.1: {}
+  mime@4.1.2: {}
 
   minimatch@10.2.5:
     dependencies:
@@ -3947,9 +3947,9 @@ snapshots:
 
   range-parser@1.2.1: {}
 
-  rate-limit-redis@4.3.1(express-rate-limit@8.7.1(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)):
+  rate-limit-redis@4.3.1(express-rate-limit@8.7.2(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)):
     dependencies:
-      express-rate-limit: 8.7.1(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)
+      express-rate-limit: 8.7.2(express@4.22.3(supports-color@7.2.0))(supports-color@7.2.0)
     optional: true
 
   raw-body@2.5.3:
