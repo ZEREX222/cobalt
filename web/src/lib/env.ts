@@ -39,7 +39,5 @@ const docs = {
     apiLicense: "https://git.canine.tools/canine.tools/cobalt/src/branch/main/api/LICENSE",
 };
 
-const officialApiURL = "https://api.cobalt.tools";
-
-export { donate, officialApiURL, contacts, partners, siriShortcuts, docs };
+export { contacts, siriShortcuts, docs };
 export default variables;

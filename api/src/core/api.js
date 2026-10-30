@@ -3,7 +3,6 @@ import http from "node:http";
 import rateLimit from "express-rate-limit";
 import { setGlobalDispatcher, EnvHttpProxyAgent } from "undici";
 import { getCommit, getBranch, getRemote, getVersion } from "@imput/version-info";
-import { aggregatorRegistry, httpRequestMetrics, addFailedApiRequest, addApiRequest } from "../util/metrics.js";
 
 import jwt from "../security/jwt.js";
 import stream from "../stream/stream.js";
@@ -40,11 +39,8 @@ const corsConfig = env.corsWildcard ? {} : {
     optionsSuccessStatus: 200
 }
 
-export const metrics = Boolean(env.metrics && env.metricsPort);
-
 const fail = (res, code, context) => {
     const { status, body } = createResponse("error", { code, context });
-    if (metrics) addFailedApiRequest(code);
     res.status(status).json(body);
 }
 
@@ -58,7 +54,6 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
                 version: version,
                 url: env.apiURL,
                 startTime: `${startTimestamp}`,
-                metrics: metrics,
                 turnstileSitekey: env.sessionEnabled ? env.turnstileSitekey : undefined,
                 services: [...env.enabledServices].map(e => {
                     return friendlyServiceName(e);
@@ -116,10 +111,6 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
     app.set('trust proxy', ['loopback', 'uniquelocal']);
 
-    if (metrics) {
-        app.use(httpRequestMetrics);
-    }
-
     app.use('/', cors({
         methods: ['GET', 'POST'],
         exposedHeaders: [
@@ -141,8 +132,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         } else if (authHeader.includes("api-key")) {
             authType = "key";
         }
-
-        addApiRequest(authType);
+        
         next();
     });
 
@@ -221,6 +211,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
     app.use('/', (err, _, res, next) => {
         if (err) {
+            console.log(err);
             const { status, body } = createResponse("error", {
                 code: "error.api.invalid_body",
             });
@@ -309,7 +300,7 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         ...corsConfig,
     }));
 
-    app.get('/tunnel/:filename', apiTunnelLimiter, async (req, res) => {
+    app.get('/tunnel', apiTunnelLimiter, async (req, res) => {
         const id = String(req.query.id);
         const exp = String(req.query.exp);
         const sig = String(req.query.sig);
@@ -405,28 +396,6 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
 
         if (env.ytSessionServer) {
             YouTubeSession.setup();
-        }
-
-        if (metrics && isPrimary) {
-            const metricsApp = express();
-
-            metricsApp.get('/metrics', async (req, res) => {
-                try {
-                    const data = await aggregatorRegistry.clusterMetrics({ format: 'prometheus' });
-                    res.set('Content-Type', aggregatorRegistry.contentType); // proper Prometheus content type
-                    res.end(data);
-                } catch (err) {
-                    res.status(500).end(err.message);
-                }
-            });
-
-            metricsApp.get('/*', (req, res) => {
-                res.redirect('/metrics');
-            });
-
-            metricsApp.listen(env.metricsPort, '0.0.0.0', () => {
-                console.log(`${Green('[✓]')} prometheus metrics running on 0.0.0.0:${env.metricsPort}/metrics`);
-            });
         }
     });
 

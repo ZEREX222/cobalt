@@ -164,9 +164,24 @@ const remux = async (streamInfo, res) => {
 const convertAudio = async (streamInfo, res) => {
     const args = [
         '-i', streamInfo.urls,
-        '-vn',
-        ...(streamInfo.audioCopy ? ['-c:a', 'copy'] : ['-b:a', `${streamInfo.audioBitrate}k`]),
     ];
+
+    if (streamInfo.cover) {
+        args.push(
+            '-i', streamInfo.cover,
+            ...(streamInfo.cropCover ? [
+                '-vf', 'scale=-1:720,crop=720:720'
+            ] : []),
+        )
+    } else {
+        args.push('-vn');
+    }
+
+    if (streamInfo.audioCopy) {
+        args.push('-c:a', 'copy');
+    } else {
+        args.push('-b:a', `${streamInfo.audioBitrate}k`);
+    }
 
     if (streamInfo.audioFormat === 'mp3' && streamInfo.audioBitrate === '8') {
         args.push('-ar', '12000');
@@ -176,8 +191,11 @@ const convertAudio = async (streamInfo, res) => {
         args.push('-vbr', 'off');
     }
 
-    if (streamInfo.audioFormat === 'mp4a') {
-        args.push('-movflags', 'frag_keyframe+empty_moov');
+    if (['mp4a', 'm4a'].includes(streamInfo.audioFormat)) {
+        args.push(
+            '-movflags', 'frag_keyframe+empty_moov',
+            '-frag_duration', '1000000'
+        );
     }
 
     if (streamInfo.metadata) {

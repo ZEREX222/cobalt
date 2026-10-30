@@ -1,13 +1,15 @@
 import UrlPattern from "url-pattern";
 
 export const audioIgnore = new Set(["vk", "ok", "loom"]);
-export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "loom"]);
+export const hlsExceptions = new Set(["dailymotion", "vimeo", "rutube", "bsky", "youtube", "pinterest"]);
 
 export const services = {
     bilibili: {
         patterns: [
             "video/:comId",
+            ":lang/video/:comId",
             "video/:comId?p=:partId",
+            ":lang/video/:comId?p=:partId",
             "_shortLink/:comShortLink",
             "_tv/:lang/video/:tvId",
             "_tv/video/:tvId"
@@ -159,6 +161,7 @@ export const services = {
             "v/:postId.html"
         ],
         subdomains: ["vt", "vm", "m", "t", "pro"],
+        altDomains: ["tt.site"],
     },
     tumblr: {
         patterns: [

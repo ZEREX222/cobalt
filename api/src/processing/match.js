@@ -8,9 +8,6 @@ import matchAction from "./match-action.js";
 
 import { friendlyServiceName } from "./service-alias.js";
 
-import { metrics } from "../core/api.js";
-import { addServiceRequest, addServiceSuccessful } from "../util/metrics.js";
-
 import bilibili from "./services/bilibili.js";
 import reddit from "./services/reddit.js";
 import twitter from "./services/twitter.js";
@@ -79,8 +76,6 @@ export default async function({ host, patternMatch, params, authType }) {
 
         const subtitleLang =
             params.subtitleLang !== "none" ? params.subtitleLang : undefined;
-
-        if (metrics) addServiceRequest(host);
 
         switch (host) {
             case "twitter":
@@ -333,10 +328,6 @@ export default async function({ host, patternMatch, params, authType }) {
         if (shouldForceLocal && localDisabled) {
             localProcessing = "preferred";
         }
-
-        // this is probably the wrong spot to do this
-        // but if we got this far without issues then we probably successful
-        if (metrics) addServiceSuccessful(host);
 
         return matchAction({
             r,

@@ -6,12 +6,12 @@
     import PageNavTab from "$components/subnav/PageNavTab.svelte";
     import PageNavSection from "$components/subnav/PageNavSection.svelte";
 
-    import IconLock from "@tabler/icons-svelte/IconLock.svelte";
-    import IconComet from "@tabler/icons-svelte/IconComet.svelte";
-    import IconChecklist from "@tabler/icons-svelte/IconChecklist.svelte";
-    import IconUsersGroup from "@tabler/icons-svelte/IconUsersGroup.svelte";
-    import IconHelpOctagon from "@tabler/icons-svelte/IconHelpOctagon.svelte";
-    import IconHeartHandshake from "@tabler/icons-svelte/IconHeartHandshake.svelte";
+    import { IconLock } from "@tabler/icons-svelte";
+    import { IconComet } from "@tabler/icons-svelte";
+    import { IconChecklist } from "@tabler/icons-svelte";
+    import { IconUsersGroup } from "@tabler/icons-svelte";
+    import { IconHelpOctagon  } from "@tabler/icons-svelte";
+    import { IconHeartHandshake } from "@tabler/icons-svelte";
 </script>
 
 <PageNav

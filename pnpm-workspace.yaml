@@ -1,7 +1,7 @@
 packages:
-    - "api"
-    - "web"
-    - "packages/*"
+  - "api"
+  - "web"
+  - "packages/*"
 allowBuilds:
   esbuild: true
   ffmpeg-static: true

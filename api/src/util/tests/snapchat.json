@@ -1,7 +1,7 @@
 [
     {
         "name": "spotlight",
-        "url": "https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYdWxucG9pZmNqAY46j0a5AY46j0YbAAAAAQ",
+        "url": "https://www.snapchat.com/spotlight/W7_EDlXWTBiXAEEniNoMPwAAYbGZ1aWJ3eGRhAZnG0eo9AZnG0enDAAAAAQ",
         "params": {},
         "expected": {
             "code": 200,
@@ -10,7 +10,7 @@
     },
     {
         "name": "story",
-        "url": "https://www.snapchat.com/add/bazerkmakane",
+        "url": "https://www.snapchat.com/add/cantonfair23",
         "params": {},
         "expected": {
             "code": 200,
