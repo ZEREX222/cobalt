@@ -175,7 +175,7 @@ export class ProxyPool {
         agentFactory = uri => new ProxyAgent({
             uri, proxyTls: { timeout: 10000 }, requestTls: { timeout: 10000 },
         }),
-        log = message => console.warn(message),
+        log = message => console.log(message),
     } = {}) {
         this.now = now;
         this.random = random;
@@ -184,6 +184,7 @@ export class ProxyPool {
         this.lastPicked = new Map();
         this.entries = urls.map(url => ({
             id: createHash("sha256").update(url).digest("hex").slice(0, 24),
+            address: new URL(url).host,
             agent: agentFactory(url),
             global: state(),
             services: new Map(),
@@ -299,6 +300,7 @@ export class ProxyPool {
                 throw new Error(`No available proxy for service ${service}`);
             }
             excluded.add(entry.id);
+            this.log(`[proxy-pool] service=${service} host=${hostname} proxy=${entry.address} attempt=${number}/3 result=start`);
             const attempt = {
                 id: entry.id, service, cleanups: [],
                 controller: new AbortController(),
@@ -355,7 +357,7 @@ export class ProxyPool {
             if (retryable) {
                 const failure = attempt.failure || { kind: "fetch" };
                 if (failure.kind !== "upstream") this.block(health, failure);
-                this.log(`[proxy-pool] service=${service} proxy=${entry.id} attempt=${number}/3 result=${failure.kind}`);
+                this.log(`[proxy-pool] service=${service} proxy=${entry.address} attempt=${number}/3 result=${failure.kind}`);
             }
             if (!retryable || number === 3 || this.now() >= deadline) {
                 if (thrown) throw thrown;

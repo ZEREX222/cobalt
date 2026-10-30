@@ -270,7 +270,42 @@ test("does not retry application exceptions or expose proxy credentials in logs"
     }), /parser bug/);
     assert.equal(calls, 1);
     await pool.run("youtube", "www.youtube.com", () => failure());
-    assert.ok(messages.every(message => !message.includes("http") && !message.includes("3128")));
+    assert.ok(messages.every(message => !message.includes("http") && !message.includes("@")));
+});
+
+test("logs each attempt with the proxy address but never credentials or media segments", async t => {
+    const messages = [];
+    const agents = [];
+    const pool = new ProxyPool([
+        "http://private-user:private-password@proxy-a:3128",
+        "http://private-user:private-password@proxy-b:3128",
+    ], {
+        log: message => messages.push(message),
+        agentFactory: () => {
+            const agent = new MockAgent();
+            agent.disableNetConnect();
+            agents.push(agent);
+            return agent;
+        },
+    });
+    t.after(() => pool.close());
+    let calls = 0, id;
+    await pool.run("instagram", "www.instagram.com", attempt => {
+        id = attempt.id;
+        return ++calls === 1 ? failure() : success;
+    });
+    assert.deepEqual(messages, [
+        "[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-a:3128 attempt=1/3 result=start",
+        "[proxy-pool] service=instagram proxy=proxy-a:3128 attempt=1/3 result=fetch",
+        "[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-b:3128 attempt=2/3 result=start",
+    ]);
+    assert.ok(messages.every(message => !/private-user|private-password|@/.test(message)));
+    agents[1].get("https://cdn.example").intercept({ path: "/segment.ts" }).reply(200, "segment");
+    const response = await fetch("https://cdn.example/segment.ts", {
+        dispatcher: pool.dispatcher(id, "instagram"),
+    });
+    assert.equal(await response.text(), "segment");
+    assert.equal(messages.length, 3);
 });
 
 async function localProxy(t, status, body) {

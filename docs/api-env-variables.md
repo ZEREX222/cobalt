@@ -173,6 +173,11 @@ is available, and periodically explores less recently used proxies. health is
 tracked per service and exact destination hostname, so a service-specific
 failure does not disable a proxy for unrelated services.
 
+each metadata attempt logs its service, destination hostname, proxy host/port and
+attempt number. retryable failures also log their category. credentials and full
+request URLs are never included in these pool logs; media segments do not produce
+individual request log lines.
+
 retryable metadata failures trigger up to two additional attempts with distinct
 proxies (three attempts total), within a shared 30-second deadline. fewer attempts
 are made if the eligible pool is exhausted. rate limits honor `Retry-After`;
