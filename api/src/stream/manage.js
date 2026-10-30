@@ -10,6 +10,8 @@ import { closeRequest } from "./shared.js";
 import { decryptStream, encryptStream } from "../misc/crypto.js";
 import { hashHmac } from "../security/secrets.js";
 import { zip } from "../misc/utils.js";
+import { currentProxy } from "../misc/proxy-pool.js";
+import { pinnedProxyDispatcher, withPinnedProxy } from "../misc/proxy.js";
 
 // optional dependency
 const freebind = env.freebindCIDR && await import('freebind').catch(() => {});
@@ -19,6 +21,7 @@ const streamCache = new Store('streams');
 const internalStreamCache = new Map();
 
 export function createStream(obj) {
+    currentProxy()?.controller.signal.throwIfAborted();
     const streamID = nanoid(),
         iv = randomBytes(16).toString('base64url'),
         secret = randomBytes(32).toString('base64url'),
@@ -32,6 +35,8 @@ export function createStream(obj) {
             filename: obj.filename,
 
             requestIP: obj.requestIP,
+            proxyId: obj.proxyId || currentProxy()?.id,
+            proxyService: obj.proxyService || currentProxy()?.service,
             headers: obj.headers,
 
             metadata: obj.fileMetadata || false,
@@ -139,9 +144,15 @@ export function getInternalTunnelFromURL(url) {
 }
 
 export function createInternalStream(url, obj = {}, isSpecial) {
+    currentProxy()?.controller.signal.throwIfAborted();
     assert(typeof url === 'string');
 
     let dispatcher = obj.dispatcher;
+    const proxyId = obj.proxyId || currentProxy()?.id;
+    const proxyService = obj.proxyService || currentProxy()?.service || obj.service;
+    if (proxyId && new URL(url).hostname !== '127.0.0.1') {
+        dispatcher = pinnedProxyDispatcher(proxyId, proxyService);
+    }
     if (obj.requestIP) {
         dispatcher = freebind?.dispatcherFromIP(obj.requestIP, { strict: false })
     }
@@ -168,6 +179,8 @@ export function createInternalStream(url, obj = {}, isSpecial) {
         headers,
         controller,
         dispatcher,
+        proxyId,
+        proxyService,
         isHLS: obj.isHLS,
         transplant: obj.transplant
     });
@@ -181,6 +194,7 @@ export function createInternalStream(url, obj = {}, isSpecial) {
     }
 
     controller.signal.addEventListener('abort', cleanup);
+    currentProxy()?.cleanups.push(cleanup);
 
     return streamLink.toString();
 }
@@ -228,10 +242,10 @@ const transplantTunnel = async function (dispatcher) {
 
     try {
         const handler = await import(`../processing/services/${this.service}.js`);
-        const response = await handler.default({
-            ...this.originalRequest,
-            dispatcher
-        });
+        const response = await withPinnedProxy(
+            this.proxyId, this.proxyService || this.service,
+            () => handler.default({ ...this.originalRequest, dispatcher }),
+        );
 
         if (!response.urls) {
             return;

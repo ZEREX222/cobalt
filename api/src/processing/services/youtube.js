@@ -159,7 +159,7 @@ const cloneInnertube = async (customFetch, useSession, requestIP) => {
         innertube.session.config_data,
         innertube.session.player,
         cookie,
-        innertube.session.http.fetch_function,
+        customFetch,
         innertube.session.cache,
         innertube.session.po_token ?? sessionTokens?.potoken
     );

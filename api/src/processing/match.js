@@ -7,6 +7,7 @@ import { testers } from "./service-patterns.js";
 import matchAction from "./match-action.js";
 
 import { friendlyServiceName } from "./service-alias.js";
+import { withProxyPool } from "../misc/proxy.js";
 
 import bilibili from "./services/bilibili.js";
 import reddit from "./services/reddit.js";
@@ -33,10 +34,27 @@ import medal from "./services/medal.js";
 
 let freebind;
 
-export default async function({ host, patternMatch, params, authType }) {
+export default async function match(options) {
+    try {
+        return await withProxyPool(options.host, options.params.url.hostname, attempt =>
+            matchAttempt({
+                ...options,
+                params: attempt ? { ...options.params, alwaysProxy: true } : options.params,
+            }, attempt)
+        );
+    } catch (error) {
+        console.error(env.proxyPool ? `[proxy-pool] service=${options.host} operation failed` : error);
+        return createResponse("error", {
+            code: "error.api.fetch.critical",
+            context: { service: friendlyServiceName(options.host) },
+        });
+    }
+}
+
+async function matchAttempt({ host, patternMatch, params, authType }, attempt) {
     const { url } = params;
     assert(url instanceof URL);
-    let dispatcher, requestIP;
+    let dispatcher = attempt?.dispatcher, requestIP;
 
     if (env.freebindCIDR) {
         if (!freebind) {
@@ -344,6 +362,7 @@ export default async function({ host, patternMatch, params, authType }) {
             localProcessing,
         })
     } catch (error) {
+        if (attempt) throw error;
         console.error(error);
         return createResponse("error", {
             code: "error.api.fetch.critical",

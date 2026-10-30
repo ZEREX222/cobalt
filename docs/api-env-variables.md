@@ -29,6 +29,7 @@ this document is not final and will expand over time. feel free to improve it!
 | HTTP_PROXY  | `http://user:password@10.0.0.1:1337/` |
 | HTTPS_PROXY | `https://10.0.0.2:1337/`              |
 | NO_PROXY    | `localhost`                           |
+| PROXY_POOL  | `http://user:password@proxy-a:3128,http://user:password@proxy-b:3128` |
 
 [*view details*](#networking)
 
@@ -141,6 +142,60 @@ quoted from [undici docs](https://undici.nodejs.org/#/docs/api/EnvHttpProxyAgent
 the value is a string:
 - `HTTP_PROXY`/`HTTPS_PROXY`: URL or hostname.
 - `NO_PROXY`: comma or space-separated list of hostnames.
+
+### PROXY_POOL
+optional comma- or whitespace-separated list of HTTP(S) proxy URLs, including
+credentials when required. percent-encode reserved characters in usernames and
+passwords. duplicate URLs are ignored; invalid entries stop startup without
+printing their credentials.
+
+```dotenv
+PROXY_POOL=http://user:password@proxy-a:3128,http://user:password@proxy-b:3128,http://user:password@proxy-c:3128
+```
+
+the same value can be passed as a Docker environment variable:
+
+```yaml
+services:
+  cobalt-api:
+    environment:
+      PROXY_POOL: "${PROXY_POOL}"
+```
+
+when configured, the pool takes precedence over `HTTP_PROXY`, `HTTPS_PROXY` and
+`NO_PROXY` for service requests and their media. other outbound requests retain
+the standard proxy environment behavior. internal loopback requests never use
+the pool. when unset, the existing proxy behavior is unchanged.
+
+cobalt automatically identifies the service from the submitted URL. selection
+prefers reliable, less-loaded proxies, avoids the previous proxy when another
+is available, and periodically explores less recently used proxies. health is
+tracked per service and exact destination hostname, so a service-specific
+failure does not disable a proxy for unrelated services.
+
+retryable metadata failures trigger up to two additional attempts with distinct
+proxies (three attempts total), within a shared 30-second deadline. fewer attempts
+are made if the eligible pool is exhausted. rate limits honor `Retry-After`;
+temporary exclusions increase from about 30 seconds to 10 minutes, with jitter.
+after a cooldown, only one metadata operation probes that service/proxy pair.
+proxy connection failures also temporarily exclude the proxy globally; proxy
+authentication failures disable it until restart. upstream `5xx` responses can
+trigger retries without blacklisting the proxy. known content/access errors do
+not trigger retries; ambiguous empty results are retried only when a network or
+HTTP failure was observed.
+
+media, picker items, subtitles and HLS segments retain the proxy used to obtain
+their links. enabling the pool forces server-side media tunneling, even when
+`alwaysProxy` is false, to avoid changing the source IP. media failures update
+health for future operations, but an existing stream is never silently switched
+to another proxy or restarted after bytes have been sent.
+
+health and load statistics are held in memory per API process and reset on
+restart; they are not shared through Redis. all workers/replicas serving shared
+tunnels must have the same pool configuration. changing the pool requires a
+restart and is rejected through `API_ENV_FILE`. `PROXY_POOL` cannot be combined
+with `FREEBIND_CIDR`. existing account cookies and external YouTube session tokens
+are not automatically assigned separate identities per proxy.
 
 ### API_EXTERNAL_PROXY (deprecated)
 > [!WARNING]

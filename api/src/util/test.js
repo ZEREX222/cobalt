@@ -4,7 +4,7 @@ import { env } from "../config.js";
 import { runTest } from "../misc/run-test.js";
 import { loadJSON } from "../misc/load-from-fs.js";
 import { Red, Bright } from "../misc/console-text.js";
-import { setGlobalDispatcher, EnvHttpProxyAgent, ProxyAgent } from "undici";
+import { configureProxy } from "../misc/proxy.js";
 import { randomizeCiphers } from "../misc/randomize-ciphers.js";
 
 import { services } from "../processing/service-config.js";
@@ -69,10 +69,7 @@ const printHeader = (service, padLen) => {
     console.log(service + '='.repeat(50));
 }
 
-// TODO: remove env.externalProxy in a future version
-setGlobalDispatcher(
-    new EnvHttpProxyAgent({ httpProxy: env.externalProxy || undefined })
-);
+configureProxy();
 
 env.streamLifespan = 10000;
 env.apiURL = 'http://x/';

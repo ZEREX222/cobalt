@@ -11,6 +11,7 @@
     "scripts": {
         "start": "node src/cobalt",
         "test": "node src/util/test",
+        "test:proxy": "node --test src/misc/proxy-pool.test.js src/misc/proxy.integration.test.js src/misc/proxy.default.test.js",
         "token:jwt": "node src/util/generate-jwt-secret"
     },
     "repository": {

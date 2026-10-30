@@ -7,6 +7,7 @@ import { FileWatcher } from "../misc/file-watcher.js";
 import { isURL } from "../misc/utils.js";
 import * as cluster from "../misc/cluster.js";
 import { Green, Yellow } from "../misc/console-text.js";
+import { parseProxyPool } from "../misc/proxy-pool.js";
 
 const forceLocalProcessingOptions = ["never", "session", "always"];
 const youtubeHlsOptions = ["never", "key", "always"];
@@ -95,6 +96,7 @@ export const loadEnvs = (env = process.env) => {
             && parseInt(env.PROCESSING_PRIORITY),
 
         externalProxy: env.API_EXTERNAL_PROXY,
+        proxyPool: env.PROXY_POOL || "",
 
         // used only for comparing against old values when envs are being updated
         httpProxyValues: httpProxyVariables.map(k => String(env[k])).join(''),
@@ -147,6 +149,11 @@ export const loadEnvs = (env = process.env) => {
 let loggedProxyWarning = false;
 
 export const validateEnvs = async (env) => {
+    const proxies = parseProxyPool(env.proxyPool);
+    if (proxies.length && env.freebindCIDR) {
+        throw new Error("PROXY_POOL cannot be combined with FREEBIND_CIDR");
+    }
+
     if ((env.sessionEnabled || env.MEOWING_SESSION_REQUIRED_FOR) && env.jwtSecret.length < 16) {
         throw new Error("JWT_SECRET env is too short (must be at least 16 characters long)");
     }
@@ -220,6 +227,10 @@ const reloadEnvs = async (contents) => {
         ...newEnvs,
     };
 
+    if ((candidate.PROXY_POOL || "") !== currentEnv.proxyPool) {
+        throw new Error("Changing PROXY_POOL requires an API restart");
+    }
+
     const parsed = await validateEnvs(
         loadEnvs(candidate)
     );
@@ -242,7 +253,8 @@ const wrapReload = (contents) => {
             const value = currentEnv[key];
             const isSecret = key.toLowerCase().includes('apikey')
                           || key.toLowerCase().includes('secret')
-                          || key === 'httpProxyValues';
+                          || key === 'httpProxyValues'
+                          || key === 'proxyPool';
 
             if (!value) {
                 console.log(`    removed: ${key}`);
