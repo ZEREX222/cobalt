@@ -22,10 +22,10 @@ export function withProxyPool(service, hostname, operation) {
     return pool ? pool.run(service, hostname, operation) : operation();
 }
 
-export function pinnedProxyDispatcher(id, service) {
+export function pinnedProxyDispatcher(id, service, episode) {
     configureProxy();
     if (!pool) throw new Error("Pinned proxy pool is not configured");
-    return pool.dispatcher(id, service);
+    return pool.dispatcher(id, service, episode);
 }
 
 export function withPinnedProxy(id, service, operation) {

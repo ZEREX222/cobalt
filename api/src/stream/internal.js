@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { closeRequest, getHeaders, pipe } from "./shared.js";
 import { handleHlsPlaylist, isHlsResponse, probeInternalHLSTunnel } from "./internal-hls.js";
 import { logTunnel } from "./diagnostics.js";
+import { youtubeCache } from "../processing/helpers/youtube-cache.js";
 
 const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
@@ -64,9 +65,9 @@ async function handleChunkedStream(streamInfo, res) {
     const cleanup = () => (res.end(), closeRequest(streamInfo.controller));
 
     try {
-        let req, attempts = 3;
+        let req, attempts = 2;
         while (attempts--) {
-            logTunnel("cdn-request", streamInfo, { method: "HEAD", attempt: 3 - attempts });
+            logTunnel("cdn-request", streamInfo, { method: "HEAD", attempt: 2 - attempts });
             req = await fetch(streamInfo.url, {
                 headers: getHeaders(streamInfo.service),
                 method: 'HEAD',
@@ -79,10 +80,11 @@ async function handleChunkedStream(streamInfo, res) {
             });
 
             streamInfo.url = req.url;
-            if (req.status === 403 && streamInfo.transplant) {
+            if (req.status === 403 && attempts > 0 && streamInfo.transplant) {
                 try {
                     await streamInfo.transplant(streamInfo.dispatcher);
-                } catch {
+                } catch (error) {
+                    logTunnel("refresh-error", streamInfo, { error });
                     break;
                 }
             } else break;
@@ -94,7 +96,9 @@ async function handleChunkedStream(streamInfo, res) {
             logTunnel("empty-input", streamInfo, {
                 status: req.status, contentLength: Number(size),
             });
-            globalThis.FORCE_RESET_INNERTUBE_PLAYER = true;
+            if (streamInfo.service === "youtube") {
+                youtubeCache.invalidate(streamInfo.proxyId || streamInfo.requestIP || "environment");
+            }
             return cleanup();
         }
 

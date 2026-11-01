@@ -123,12 +123,13 @@ test("pipe diagnostics count bytes without changing output", async t => {
     assert.equal(ended.tunnelId, "test-tunnel");
 });
 
-async function chunkServer(t, mock, records) {
+async function chunkServer(t, mock, records, overrides = {}) {
     const controller = new AbortController();
     const info = {
         url: "https://cdn.example/video?sig=secret",
         service: "youtube", tunnelId: "test-tunnel", internalId: "test-internal",
         proxyId: "test-proxy", dispatcher: mock, controller,
+        ...overrides,
     };
     const server = createServer((req, res) => internalStream(info, res));
     server.listen(0, "127.0.0.1");
@@ -160,6 +161,45 @@ test("a rejected YouTube HEAD produces correlated status and zero-input diagnost
     assert.equal(rejected.contentLength, 0);
     assert.equal(rejected.proxyId, "test-proxy");
     assert.ok(!JSON.stringify(records).includes("secret"));
+});
+
+test("YouTube HEAD retries exactly twice and does not refresh after the final failure", async t => {
+    const records = capture(t);
+    const mock = new MockAgent();
+    mock.disableNetConnect();
+    mock.get("https://cdn.example").intercept({
+        path: "/video?sig=secret", method: "HEAD",
+    }).reply(403, "", { headers: { "content-length": "0" } }).times(2);
+    let refreshes = 0;
+    assert.equal(await chunkServer(t, mock, records, {
+        transplant: async () => { refreshes++; },
+    }), "");
+    assert.equal(refreshes, 1);
+    assert.deepEqual(
+        records.filter(record => record.event === "cdn-request").map(record => record.attempt),
+        [1, 2],
+    );
+});
+
+test("YouTube can download after the single permitted URL refresh", async t => {
+    const records = capture(t);
+    const mock = new MockAgent();
+    mock.disableNetConnect();
+    const origin = mock.get("https://cdn.example");
+    origin.intercept({ path: "/video?sig=secret", method: "HEAD" }).reply(403, "", {
+        headers: { "content-length": "0" },
+    });
+    origin.intercept({ path: "/video?sig=secret", method: "HEAD" }).reply(200, "", {
+        headers: { "content-length": "5" },
+    });
+    origin.intercept({ path: "/video?sig=secret" }).reply(206, "video", {
+        headers: { "content-length": "5" },
+    });
+    let refreshes = 0;
+    assert.equal(await chunkServer(t, mock, records, {
+        transplant: async () => { refreshes++; },
+    }), "video");
+    assert.equal(refreshes, 1);
 });
 
 test("YouTube HEAD and chunk GET diagnostics preserve a successful download", async t => {

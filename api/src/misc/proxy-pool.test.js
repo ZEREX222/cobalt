@@ -59,7 +59,7 @@ test("rotates healthy proxies and pins the context throughout an operation", asy
     assert.equal(currentProxy(), undefined);
 });
 
-test("makes at most three attempts, using distinct proxies and cleaning failed attempts", async t => {
+test("makes at most two attempts, using distinct proxies and cleaning failed attempts", async t => {
     const { pool } = fixture(t);
     const ids = [], cleaned = [];
     const result = await pool.run("instagram", "www.instagram.com", attempt => {
@@ -68,10 +68,14 @@ test("makes at most three attempts, using distinct proxies and cleaning failed a
         return failure();
     });
     assert.equal(result.body.error.code, "error.api.fetch.fail");
-    assert.equal(new Set(ids).size, 3);
+    assert.equal(ids.length, 2);
+    assert.equal(new Set(ids).size, 2);
     assert.deepEqual(cleaned, ids);
     assert.equal(pool.entries.reduce((sum, entry) => sum + entry.global.active, 0), 0);
-    await assert.rejects(pool.run("instagram", "www.instagram.com", () => success), /No available proxy/);
+    await pool.run("instagram", "www.instagram.com", attempt => {
+        assert.ok(!ids.includes(attempt.id));
+        return success;
+    });
 });
 
 test("a service failure does not blacklist the proxy for another service", async t => {
@@ -101,6 +105,7 @@ test("content and authentication errors are not retried or penalized", async t =
 test("allows only one recovery probe after the cooldown", async t => {
     const { pool, advance } = fixture(t);
     await pool.run("instagram", "www.instagram.com", () => failure());
+    await pool.run("instagram", "www.instagram.com", () => failure());
     advance(30001);
     let resume;
     const pending = pool.run("instagram", "www.instagram.com", () =>
@@ -121,7 +126,9 @@ test("allows only one recovery probe after the cooldown", async t => {
 test("increases the cooldown when a recovery probe fails", async t => {
     const { pool, advance } = fixture(t);
     await pool.run("instagram", "www.instagram.com", () => failure());
+    await pool.run("instagram", "www.instagram.com", () => failure());
     advance(30001);
+    await pool.run("instagram", "www.instagram.com", () => failure());
     await pool.run("instagram", "www.instagram.com", () => failure());
     assert.ok(pool.entries.every(entry =>
         entry.services.get("instagram").blockedUntil === 190001));
@@ -257,7 +264,139 @@ test("a failing CDN stream updates the service reputation without changing its p
         dispatcher: pool.dispatcher(pool.entries[0].id, "instagram"),
     });
     await response.text();
-    assert.ok(pool.entries[0].services.get("instagram").blockedUntil > 100000);
+    assert.ok(pool.entries[0].media.get("instagram").blockedUntil > 100000);
+});
+
+test("concurrent metadata success cannot clear a CDN quarantine", async t => {
+    const { pool, agents } = fixture(t);
+    let resume, id;
+    const pending = pool.run("youtube", "www.youtube.com", attempt => {
+        id = attempt.id;
+        return new Promise(resolve => { resume = resolve; });
+    });
+    agents[0].get("https://cdn.example").intercept({ path: "/video" }).reply(403, "");
+    const response = await fetch("https://cdn.example/video", {
+        dispatcher: pool.dispatcher(id, "youtube", new Set()),
+    });
+    await response.text();
+    resume(success);
+    await pending;
+    const entry = pool.entries[0];
+    assert.equal(entry.media.get("youtube").failures, 1);
+    assert.equal(entry.media.get("youtube").blockedUntil, 130000);
+    await pool.run("youtube", "www.youtube.com", attempt => {
+        assert.notEqual(attempt.id, id);
+        return success;
+    });
+    await pool.run("instagram", "www.instagram.com", () => success);
+    assert.equal(entry.media.get("youtube").blockedUntil, 130000);
+});
+
+test("one tunnel has one penalty across streams and retries, with Retry-After retained", async t => {
+    const { pool, agents } = fixture(t);
+    const episode = new Set(), entry = pool.entries[0];
+    const origin = agents[0].get("https://cdn.example");
+    for (let i = 0; i < 4; i++) {
+        origin.intercept({ path: `/${i}` }).reply(i === 3 ? 429 : 403, "", {
+            headers: i === 3 ? { "retry-after": "120" } : {},
+        });
+        await (await fetch(`https://cdn.example/${i}`, {
+            dispatcher: pool.dispatcher(entry.id, "youtube", episode),
+        })).text();
+    }
+    assert.equal(entry.media.get("youtube").failures, 1);
+    assert.equal(entry.media.get("youtube").blockedUntil, 220000);
+    assert.equal(entry.domains.get("youtube:cdn.example").failures, 1);
+    origin.intercept({ path: "/new-tunnel" }).reply(403, "");
+    await (await fetch("https://cdn.example/new-tunnel", {
+        dispatcher: pool.dispatcher(entry.id, "youtube", new Set()),
+    })).text();
+    assert.equal(entry.media.get("youtube").failures, 2);
+    assert.equal(entry.media.get("youtube").blockedUntil, 220000);
+});
+
+test("media recovery is exclusive and requires completed data rather than metadata or HEAD", async t => {
+    const { pool, agents, advance } = fixture(t);
+    const entry = pool.entries[0];
+    pool.recordMediaFailure(entry, "youtube", { kind: "blocked" }, new Set());
+    advance(30001);
+    // Isolate the recovering proxy to exercise the probe rather than healthy alternatives.
+    for (const other of pool.entries.slice(1)) other.global.blockedUntil = Infinity;
+    await pool.run("youtube", "www.youtube.com", () => success);
+    assert.equal(entry.media.get("youtube").probing, true);
+    await assert.rejects(pool.run("youtube", "www.youtube.com", () => success), /No available proxy/);
+    const origin = agents[0].get("https://cdn.example");
+    origin.intercept({ path: "/video", method: "HEAD" }).reply(200, "", {
+        headers: { "content-length": "5" },
+    });
+    const dispatcher = pool.dispatcher(entry.id, "youtube");
+    await (await fetch("https://cdn.example/video", { method: "HEAD", dispatcher })).text();
+    assert.equal(entry.media.get("youtube").probing, true);
+    assert.equal(entry.media.get("youtube").failures, 1);
+    origin.intercept({ path: "/empty" }).reply(200, "");
+    await (await fetch("https://cdn.example/empty", { dispatcher })).text();
+    assert.equal(entry.media.get("youtube").probing, true);
+    origin.intercept({ path: "/video" }).reply(206, "video");
+    assert.equal(await (await fetch("https://cdn.example/video", { dispatcher })).text(), "video");
+    assert.equal(entry.media.get("youtube").probing, false);
+    assert.equal(entry.media.get("youtube").blockedUntil, 0);
+    assert.equal(entry.media.get("youtube").failures, 0);
+});
+
+test("a successful old media request cannot erase a newer ban", async t => {
+    const { pool, advance } = fixture(t);
+    const entry = pool.entries[0], health = pool.mediaState(entry, "youtube");
+    const revision = health.revision;
+    pool.recordMediaFailure(entry, "youtube", { kind: "blocked" });
+    advance(30001);
+    pool.mediaSuccess(entry, "youtube", revision, entry.global.revision);
+    assert.equal(health.failures, 1);
+    assert.equal(health.blockedUntil, 130000);
+});
+
+test("an old metadata success cannot erase a newer metadata failure", async t => {
+    const { pool, advance } = fixture(t);
+    for (const entry of pool.entries.slice(1)) entry.global.blockedUntil = Infinity;
+    let resume;
+    const pending = pool.run("youtube", "www.youtube.com", () =>
+        new Promise(resolve => { resume = resolve; }));
+    await pool.run("youtube", "www.youtube.com", () => failure());
+    advance(30001);
+    resume(success);
+    await pending;
+    assert.equal(pool.entries[0].services.get("youtube").failures, 1);
+    assert.equal(pool.entries[0].services.get("youtube").blockedUntil, 130000);
+});
+
+test("metadata refresh with a stream dispatcher cannot count as media recovery", async t => {
+    const { pool, agents, advance } = fixture(t);
+    const entry = pool.entries[0];
+    pool.recordMediaFailure(entry, "youtube", { kind: "blocked" });
+    advance(30001);
+    agents[0].get("https://www.youtube.com")
+        .intercept({ path: "/player" }).reply(200, "metadata");
+    await pool.runPinned(entry.id, "youtube", async () => {
+        await (await fetch("https://www.youtube.com/player", {
+            dispatcher: pool.dispatcher(entry.id, "youtube"),
+        })).text();
+    });
+    assert.equal(entry.media.get("youtube").failures, 1);
+    assert.equal(entry.media.get("youtube").blockedUntil, 130000);
+});
+
+test("a media probe that never downloads cannot lock the proxy indefinitely", async t => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const { pool, advance } = fixture(t);
+    const entry = pool.entries[0];
+    pool.recordMediaFailure(entry, "youtube", { kind: "blocked" });
+    advance(30001);
+    for (const other of pool.entries.slice(1)) other.global.blockedUntil = Infinity;
+    await pool.run("youtube", "www.youtube.com", () => success);
+    advance(30000);
+    t.mock.timers.tick(30000);
+    assert.equal(entry.media.get("youtube").probing, false);
+    assert.equal(entry.media.get("youtube").failures, 2);
+    assert.equal(entry.media.get("youtube").blockedUntil, 220001);
 });
 
 test("does not retry application exceptions or expose proxy credentials in logs", async t => {
@@ -295,9 +434,9 @@ test("logs each attempt with the proxy address but never credentials or media se
         return ++calls === 1 ? failure() : success;
     });
     assert.deepEqual(messages, [
-        `[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-a:3128 proxyId=${pool.entries[0].id} attempt=1/3 result=start`,
-        "[proxy-pool] service=instagram proxy=proxy-a:3128 attempt=1/3 result=fetch",
-        `[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-b:3128 proxyId=${pool.entries[1].id} attempt=2/3 result=start`,
+        `[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-a:3128 proxyId=${pool.entries[0].id} attempt=1/2 result=start`,
+        "[proxy-pool] service=instagram proxy=proxy-a:3128 attempt=1/2 result=fetch",
+        `[proxy-pool] service=instagram host=www.instagram.com proxy=proxy-b:3128 proxyId=${pool.entries[1].id} attempt=2/2 result=start`,
     ]);
     assert.ok(messages.every(message => !/private-user|private-password|@/.test(message)));
     agents[1].get("https://cdn.example").intercept({ path: "/segment.ts" }).reply(200, "segment");

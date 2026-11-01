@@ -20,6 +20,7 @@ const freebind = env.freebindCIDR && await import('freebind').catch(() => {});
 const streamCache = new Store('streams');
 
 const internalStreamCache = new Map();
+const proxyEpisodes = new Map();
 
 export function createStream(obj) {
     currentProxy()?.controller.signal.throwIfAborted();
@@ -154,7 +155,7 @@ export function createInternalStream(url, obj = {}, isSpecial) {
     const proxyId = obj.proxyId || currentProxy()?.id;
     const proxyService = obj.proxyService || currentProxy()?.service || obj.service;
     if (proxyId && new URL(url).hostname !== '127.0.0.1') {
-        dispatcher = pinnedProxyDispatcher(proxyId, proxyService);
+        dispatcher = pinnedProxyDispatcher(proxyId, proxyService, obj.proxyEpisode);
     }
     if (obj.requestIP) {
         dispatcher = freebind?.dispatcherFromIP(obj.requestIP, { strict: false })
@@ -188,6 +189,8 @@ export function createInternalStream(url, obj = {}, isSpecial) {
         transplant: obj.transplant,
         tunnelId: obj.tunnelId,
         internalId: streamID,
+        proxyEpisode: obj.proxyEpisode,
+        requestIP: obj.requestIP,
     });
     logTunnel("internal-created", internalStreamCache.get(streamID));
 
@@ -288,6 +291,19 @@ const transplantTunnel = async function (dispatcher) {
 
 function wrapStream(streamInfo) {
     const url = streamInfo.urls;
+    streamInfo.proxyEpisode = new Set();
+    if (streamInfo.proxyId) {
+        if (!proxyEpisodes.has(streamInfo.tunnelId)) {
+            for (const [id, episode] of proxyEpisodes) {
+                if (episode.exp <= Date.now()) proxyEpisodes.delete(id);
+            }
+            if (proxyEpisodes.size >= 1024) proxyEpisodes.delete(proxyEpisodes.keys().next().value);
+            proxyEpisodes.set(streamInfo.tunnelId, {
+                failures: streamInfo.proxyEpisode, exp: streamInfo.exp,
+            });
+        }
+        streamInfo.proxyEpisode = proxyEpisodes.get(streamInfo.tunnelId).failures;
+    }
 
     if (streamInfo.originalRequest) {
         streamInfo.transplant = transplantTunnel.bind(streamInfo);

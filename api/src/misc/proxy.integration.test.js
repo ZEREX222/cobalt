@@ -61,6 +61,10 @@ test("API metadata retries, encrypted tunnels and nested media keep the selected
         query.get("id"), query.get("sig"), query.get("exp"), query.get("sec"), query.get("iv"),
     );
     assert.equal(stream.proxyId, ids[1]);
+    const reopened = await verifyStream(
+        query.get("id"), query.get("sig"), query.get("exp"), query.get("sec"), query.get("iv"),
+    );
+    assert.equal(reopened.proxyEpisode, stream.proxyEpisode);
     const internal = getInternalTunnelFromURL(stream.urls);
     assert.equal(internal.proxyId, ids[1]);
     const video = await fetch(internal.url, { dispatcher: internal.dispatcher });
@@ -70,6 +74,8 @@ test("API metadata retries, encrypted tunnels and nested media keep the selected
     ));
     assert.equal(nested.proxyId, ids[1]);
     assert.equal(nested.proxyService, "streamable");
+    assert.equal(internal.proxyEpisode, stream.proxyEpisode);
+    assert.equal(nested.proxyEpisode, stream.proxyEpisode);
     const segment = await fetch(nested.url, { dispatcher: nested.dispatcher });
     assert.equal(await segment.text(), "segment");
     agents.forEach(agent => agent.assertNoPendingInterceptors());

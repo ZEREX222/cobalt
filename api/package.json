@@ -13,6 +13,7 @@
         "test": "node src/util/test",
         "test:proxy": "node --test src/misc/proxy-pool.test.js src/misc/proxy.integration.test.js src/misc/proxy.default.test.js",
         "test:tunnel": "node --test src/stream/diagnostics.test.js",
+        "test:youtube-cache": "node --test src/processing/helpers/youtube-cache.test.js",
         "token:jwt": "node src/util/generate-jwt-secret"
     },
     "repository": {

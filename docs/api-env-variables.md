@@ -190,8 +190,8 @@ attempt number. retryable failures also log their category. credentials and full
 request URLs are never included in these pool logs; media segments do not produce
 individual request log lines.
 
-retryable metadata failures trigger up to two additional attempts with distinct
-proxies (three attempts total), within a shared 30-second deadline. fewer attempts
+retryable metadata failures trigger one additional attempt with a distinct
+proxy (two attempts total), within a shared 30-second deadline. fewer attempts
 are made if the eligible pool is exhausted. rate limits honor `Retry-After`;
 temporary exclusions increase from about 30 seconds to 10 minutes, with jitter.
 after a cooldown, only one metadata operation probes that service/proxy pair.
@@ -206,6 +206,21 @@ their links. enabling the pool forces server-side media tunneling, even when
 `alwaysProxy` is false, to avoid changing the source IP. media failures update
 health for future operations, but an existing stream is never silently switched
 to another proxy or restarted after bytes have been sent.
+
+media quarantine is separate from metadata health: a successful metadata request
+cannot erase a CDN ban. repeated failures from the same tunnel count as one
+incident per proxy/service and hostname; `Retry-After` can still extend the pause.
+incident deduplication is kept for up to 1024 recent, unexpired tunnels per process.
+after media cooldown, one operation reserves a recovery probe for up to 30 seconds.
+recovery requires a completed successful media response with actual bytes, not
+just a successful HEAD or metadata request. a probe without media completion is
+quarantined again. quarantine and probe transitions log proxy ID, service, reason,
+failure count and retry timestamp, never credentials or full URLs.
+YouTube stream HEAD requests make at most two attempts and refresh the URL only
+when another attempt remains. existing tunnels stay pinned even during quarantine.
+YouTube sessions are initialized separately by proxy, client and session settings;
+concurrent requests share complete initialization, not partially prepared tokens.
+BotGuard initialization is serialized because its interpreter uses global state.
 
 health and load statistics are held in memory per API process and reset on
 restart; they are not shared through Redis. all workers/replicas serving shared
