@@ -6,6 +6,7 @@ import { env } from "../config.js";
 import { destroyInternalStream } from "./manage.js";
 import { hlsExceptions } from "../processing/service-config.js";
 import { closeResponse, pipe, estimateTunnelLength, estimateAudioMultiplier } from "./shared.js";
+import { ffmpegError, logTunnel } from "./diagnostics.js";
 
 const metadataTags = new Set([
     "album",
@@ -57,23 +58,28 @@ const getCommand = (args) => {
 
 const render = async (res, streamInfo, ffargs, estimateMultiplier) => {
     let process;
+    const debug = env.tunnelDebug;
+    let stderr = "";
+    let shutdownRequested = false;
     const urls = Array.isArray(streamInfo.urls) ? streamInfo.urls : [streamInfo.urls];
-    const shutdown = () => (
-        killProcess(process),
-        closeResponse(res),
-        urls.map(destroyInternalStream)
-    );
+    const shutdown = () => {
+        if (shutdownRequested) return;
+        shutdownRequested = true;
+        killProcess(process);
+        closeResponse(res);
+        urls.map(destroyInternalStream);
+    };
 
     try {
         const args = [
-            '-loglevel', '-8',
+            '-loglevel', debug ? 'error' : '-8',
             ...ffargs,
         ];
 
         process = spawn(...getCommand(args), {
             windowsHide: true,
             stdio: [
-                'inherit', 'inherit', 'inherit',
+                'inherit', 'inherit', debug ? 'pipe' : 'inherit',
                 'pipe'
             ],
              env: {
@@ -81,22 +87,40 @@ const render = async (res, streamInfo, ffargs, estimateMultiplier) => {
                 "https_proxy": "",
             }
         });
+        process.on("error", error => {
+            logTunnel("ffmpeg-spawn-error", streamInfo, { error });
+            shutdown();
+        });
+        process.on("close", (code, signal) => {
+            logTunnel("ffmpeg-exit", streamInfo, {
+                code, signal, shutdownRequested, ...ffmpegError(stderr),
+            });
+            shutdown();
+        });
+        if (debug) {
+            process.stderr.on("data", chunk => {
+                stderr = (stderr + chunk.toString()).slice(-8192);
+            });
+        }
+        process.once("spawn", () => logTunnel("ffmpeg-start", streamInfo, {
+            childPid: process.pid, inputs: urls.length, system: env.useSystemFFmpeg,
+        }));
 
         const [,,, muxOutput] = process.stdio;
 
         res.setHeader('Connection', 'keep-alive');
         res.setHeader('Content-Disposition', contentDisposition(streamInfo.filename));
 
-        res.setHeader(
-            'Estimated-Content-Length',
-            await estimateTunnelLength(streamInfo, estimateMultiplier)
-        );
+        const estimatedSize = await estimateTunnelLength(streamInfo, estimateMultiplier);
+        if (shutdownRequested) return;
+        logTunnel("estimated-size", streamInfo, { bytes: estimatedSize });
+        res.setHeader('Estimated-Content-Length', estimatedSize);
 
-        pipe(muxOutput, res, shutdown);
+        pipe(muxOutput, res, shutdown, streamInfo);
 
-        process.on('close', shutdown);
         res.on('finish', shutdown);
-    } catch {
+    } catch (error) {
+        logTunnel("ffmpeg-error", streamInfo, { error });
         shutdown();
     }
 }

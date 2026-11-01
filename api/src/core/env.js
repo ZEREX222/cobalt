@@ -90,6 +90,7 @@ export const loadEnvs = (env = process.env) => {
 
         durationLimit: (env.DURATION_LIMIT && parseInt(env.DURATION_LIMIT)) || 10800,
         streamLifespan: (env.TUNNEL_LIFESPAN && parseInt(env.TUNNEL_LIFESPAN)) || 90,
+        tunnelDebug: env.TUNNEL_DEBUG === "1",
 
         processingPriority: process.platform !== 'win32'
             && env.PROCESSING_PRIORITY

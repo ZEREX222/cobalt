@@ -2,6 +2,7 @@ import { request } from "undici";
 import { Readable } from "node:stream";
 import { closeRequest, getHeaders, pipe } from "./shared.js";
 import { handleHlsPlaylist, isHlsResponse, probeInternalHLSTunnel } from "./internal-hls.js";
+import { logTunnel } from "./diagnostics.js";
 
 const CHUNK_SIZE = BigInt(8e6); // 8 MB
 const min = (a, b) => a < b ? a : b;
@@ -15,6 +16,7 @@ async function* readChunks(streamInfo, size) {
             throw new Error("controller aborted");
         }
 
+        logTunnel("cdn-request", streamInfo, { method: "GET", offset: Number(read) });
         const chunk = await request(streamInfo.url, {
             headers: {
                 ...getHeaders(streamInfo.service),
@@ -23,6 +25,10 @@ async function* readChunks(streamInfo, size) {
             dispatcher: streamInfo.dispatcher,
             signal: streamInfo.controller.signal,
             maxRedirections: 4
+        });
+        logTunnel("cdn-response", streamInfo, {
+            method: "GET", status: chunk.statusCode, offset: Number(read),
+            contentLength: Number(chunk.headers["content-length"]),
         });
 
         if (chunk.statusCode === 403 && chunksSinceTransplant >= 3 && streamInfo.transplant) {
@@ -39,6 +45,9 @@ async function* readChunks(streamInfo, size) {
         const received = BigInt(chunk.headers['content-length']);
 
         if (received < expected / 2n) {
+            logTunnel("short-chunk", streamInfo, {
+                expected: Number(expected), received: Number(received),
+            });
             closeRequest(streamInfo.controller);
         }
 
@@ -57,11 +66,16 @@ async function handleChunkedStream(streamInfo, res) {
     try {
         let req, attempts = 3;
         while (attempts--) {
+            logTunnel("cdn-request", streamInfo, { method: "HEAD", attempt: 3 - attempts });
             req = await fetch(streamInfo.url, {
                 headers: getHeaders(streamInfo.service),
                 method: 'HEAD',
                 dispatcher: streamInfo.dispatcher,
                 signal
+            });
+            logTunnel("cdn-response", streamInfo, {
+                method: "HEAD", status: req.status,
+                contentLength: Number(req.headers.get("content-length")),
             });
 
             streamInfo.url = req.url;
@@ -77,6 +91,9 @@ async function handleChunkedStream(streamInfo, res) {
         const size = BigInt(req.headers.get('content-length'));
 
         if (req.status !== 200 || !size) {
+            logTunnel("empty-input", streamInfo, {
+                status: req.status, contentLength: Number(size),
+            });
             globalThis.FORCE_RESET_INNERTUBE_PLAYER = true;
             return cleanup();
         }
@@ -97,8 +114,9 @@ async function handleChunkedStream(streamInfo, res) {
             if (headerValue) res.setHeader(headerName, headerValue);
         }
 
-        pipe(stream, res, cleanup);
-    } catch {
+        pipe(stream, res, cleanup, streamInfo);
+    } catch (error) {
+        logTunnel("cdn-error", streamInfo, { error, aborted: signal.aborted });
         cleanup();
     }
 }
@@ -108,6 +126,7 @@ async function handleGenericStream(streamInfo, res) {
     const cleanup = () => res.end();
 
     try {
+        logTunnel("cdn-request", streamInfo, { method: "GET" });
         const fileResponse = await request(streamInfo.url, {
             headers: {
                 ...getHeaders(streamInfo.service),
@@ -117,6 +136,10 @@ async function handleGenericStream(streamInfo, res) {
             dispatcher: streamInfo.dispatcher,
             signal,
             maxRedirections: 16
+        });
+        logTunnel("cdn-response", streamInfo, {
+            method: "GET", status: fileResponse.statusCode,
+            contentLength: Number(fileResponse.headers["content-length"]),
         });
 
         res.status(fileResponse.statusCode);
@@ -131,6 +154,7 @@ async function handleGenericStream(streamInfo, res) {
         }
 
         if (fileResponse.statusCode < 200 || fileResponse.statusCode > 299) {
+            logTunnel("input-rejected", streamInfo, { status: fileResponse.statusCode });
             return cleanup();
         }
 
@@ -138,9 +162,10 @@ async function handleGenericStream(streamInfo, res) {
             res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
             await handleHlsPlaylist(streamInfo, fileResponse, res);
         } else {
-            pipe(fileResponse.body, res, cleanup);
+            pipe(fileResponse.body, res, cleanup, streamInfo);
         }
-    } catch {
+    } catch (error) {
+        logTunnel("cdn-error", streamInfo, { error, aborted: signal.aborted });
         closeRequest(streamInfo.controller);
         cleanup();
     }
@@ -161,6 +186,7 @@ export function internalStream(streamInfo, res) {
 export async function probeInternalTunnel(streamInfo) {
     try {
         const signal = AbortSignal.timeout(3000);
+        logTunnel("estimate-start", streamInfo, { method: "HEAD" });
         const headers = {
             ...Object.fromEntries(streamInfo.headers || []),
             ...getHeaders(streamInfo.service),
@@ -183,6 +209,10 @@ export async function probeInternalTunnel(streamInfo) {
             signal,
             maxRedirections: 16
         });
+        logTunnel("estimate-response", streamInfo, {
+            status: response.statusCode,
+            contentLength: Number(response.headers["content-length"]),
+        });
 
         if (response.statusCode !== 200)
             throw "status is not 200 OK";
@@ -192,5 +222,7 @@ export async function probeInternalTunnel(streamInfo) {
             throw "content-length is not a number";
 
         return size;
-    } catch {}
+    } catch (error) {
+        logTunnel("estimate-error", streamInfo, { error });
+    }
 }

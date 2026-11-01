@@ -3,6 +3,7 @@ import { create as contentDisposition } from "content-disposition-header";
 
 import { destroyInternalStream } from "./manage.js";
 import { getHeaders, closeRequest, closeResponse, pipe } from "./shared.js";
+import { logTunnel } from "./diagnostics.js";
 
 const defaultAgent = new Agent();
 
@@ -28,6 +29,7 @@ export default async function (streamInfo, res) {
             maxRedirections: 16,
             dispatcher: defaultAgent,
         });
+        logTunnel("loopback-response", streamInfo, { status: statusCode });
 
         res.status(statusCode);
 
@@ -37,8 +39,9 @@ export default async function (streamInfo, res) {
             }
         }
 
-        pipe(stream, res, shutdown);
-    } catch {
+        pipe(stream, res, shutdown, streamInfo);
+    } catch (error) {
+        logTunnel("loopback-error", streamInfo, { error });
         shutdown();
     }
 }

@@ -12,6 +12,7 @@ import { hashHmac } from "../security/secrets.js";
 import { zip } from "../misc/utils.js";
 import { currentProxy } from "../misc/proxy-pool.js";
 import { pinnedProxyDispatcher, withPinnedProxy } from "../misc/proxy.js";
+import { logTunnel } from "./diagnostics.js";
 
 // optional dependency
 const freebind = env.freebindCIDR && await import('freebind').catch(() => {});
@@ -28,6 +29,7 @@ export function createStream(obj) {
         exp = new Date().getTime() + env.streamLifespan * 1000,
         hmac = hashHmac(`${streamID},${exp},${iv},${secret}`, 'stream').toString('base64url'),
         streamData = {
+            tunnelId: streamID,
             exp: exp,
             type: obj.type,
             urls: obj.url,
@@ -62,6 +64,7 @@ export function createStream(obj) {
         encryptStream(streamData, iv, secret),
         env.streamLifespan
     );
+    logTunnel("created", streamData);
 
     let streamLink = new URL('/tunnel/'+encodeURIComponent(obj.filename), env.apiURL);
 
@@ -182,8 +185,11 @@ export function createInternalStream(url, obj = {}, isSpecial) {
         proxyId,
         proxyService,
         isHLS: obj.isHLS,
-        transplant: obj.transplant
+        transplant: obj.transplant,
+        tunnelId: obj.tunnelId,
+        internalId: streamID,
     });
+    logTunnel("internal-created", internalStreamCache.get(streamID));
 
     let streamLink = new URL('/itunnel', `http://127.0.0.1:${env.tunnelPort}`);
     streamLink.searchParams.set('id', streamID);
@@ -241,6 +247,7 @@ const transplantTunnel = async function (dispatcher) {
     this.pendingTransplant = new Promise(r => finished = r);
 
     try {
+        logTunnel("refresh-start", this);
         const handler = await import(`../processing/services/${this.service}.js`);
         const response = await withPinnedProxy(
             this.proxyId, this.proxyService || this.service,
@@ -248,6 +255,9 @@ const transplantTunnel = async function (dispatcher) {
         );
 
         if (!response.urls) {
+            logTunnel("refresh-failed", this, {
+                reason: "no-urls", result: response.error,
+            });
             return;
         }
 
@@ -260,12 +270,16 @@ const transplantTunnel = async function (dispatcher) {
 
         const tunnels = [this.urls].flat();
         if (tunnels.length !== response.urls.length) {
+            logTunnel("refresh-failed", this, { reason: "url-count-mismatch" });
             return;
         }
 
         transplantInternalTunnels(tunnels, response.urls);
+        logTunnel("refresh-complete", this);
     }
-    catch {}
+    catch (error) {
+        logTunnel("refresh-error", this, { error });
+    }
     finally {
         finished();
         delete this.pendingTransplant;
@@ -313,19 +327,32 @@ export async function verifyStream(id, hmac, exp, secret, iv) {
         const ghmac = hashHmac(`${id},${exp},${iv},${secret}`, 'stream').toString('base64url');
         const cache = await streamCache.get(id.toString());
 
-        if (ghmac !== String(hmac)) return { status: 401 };
-        if (!cache) return { status: 404 };
+        if (ghmac !== String(hmac)) {
+            logTunnel("verify-rejected", { tunnelId: id }, { status: 401, reason: "invalid-signature" });
+            return { status: 401 };
+        }
+        if (!cache) {
+            logTunnel("verify-rejected", { tunnelId: id }, { status: 404, reason: "cache-miss" });
+            return { status: 404 };
+        }
 
         const streamInfo = JSON.parse(decryptStream(cache, iv, secret));
 
-        if (!streamInfo) return { status: 404 };
-
-        if (Number(exp) <= new Date().getTime())
+        if (!streamInfo) {
+            logTunnel("verify-rejected", { tunnelId: id }, { status: 404, reason: "invalid-stream" });
             return { status: 404 };
+        }
 
+        if (Number(exp) <= new Date().getTime()) {
+            logTunnel("verify-rejected", { tunnelId: id }, { status: 404, reason: "expired" });
+            return { status: 404 };
+        }
+
+        streamInfo.tunnelId = id;
         return wrapStream(streamInfo);
     }
-    catch {
+    catch (error) {
+        logTunnel("verify-error", { tunnelId: id }, { error });
         return { status: 500 };
     }
 }

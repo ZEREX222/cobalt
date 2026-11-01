@@ -19,6 +19,7 @@ import { friendlyServiceName } from "../processing/service-alias.js";
 import { verifyStream } from "../stream/manage.js";
 import { createResponse, normalizeRequest, getIP } from "../processing/request.js";
 import { setupTunnelHandler } from "./itunnel.js";
+import { logTunnel } from "../stream/diagnostics.js";
 
 import * as APIKeys from "../security/api-keys.js";
 import * as Cookies from "../processing/cookie/manager.js";
@@ -312,18 +313,31 @@ export const runAPI = async (express, app, __dirname, isPrimary = true) => {
         const checkSafeLength = sig.length === 43 && sec.length === 43 && iv.length === 22;
 
         if (!checkQueries || !checkBaseLength || !checkSafeLength) {
+            logTunnel("rejected", {}, { status: 400, reason: "invalid-query" });
             return res.status(400).end();
         }
 
         if (req.query.p) {
+            logTunnel("probe-only", { tunnelId: id }, { status: 200, bytes: 0 });
             return res.status(200).end();
         }
 
+        logTunnel("open", { tunnelId: id });
+        if (env.tunnelDebug) {
+            res.once("finish", () => logTunnel("response-finish", { tunnelId: id }, {
+                status: res.statusCode,
+            }));
+            res.once("close", () => logTunnel("response-close", { tunnelId: id }, {
+                status: res.statusCode, finished: res.writableFinished,
+            }));
+        }
         const streamInfo = await verifyStream(id, sig, exp, sec, iv);
         if (!streamInfo?.service) {
+            logTunnel("rejected", { tunnelId: id }, { status: streamInfo.status });
             return res.status(streamInfo.status).end();
         }
 
+        logTunnel("verified", streamInfo);
         if (streamInfo.type === 'proxy') {
             streamInfo.range = req.headers['range'];
         }

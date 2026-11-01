@@ -14,6 +14,7 @@ this document is not final and will expand over time. feel free to improve it!
 | DISABLED_SERVICES      |         | `bilibili,youtube`                    |
 | FORCE_LOCAL_PROCESSING | `never` | `always`                              |
 | API_ENV_FILE           |         | `/.env`                               |
+| TUNNEL_DEBUG           | `0`     | `1`                                   |
 
 [*view details*](#general)
 
@@ -122,6 +123,15 @@ the value is a string: `never` (default), `session`, or `always`:
 
 ### API_ENV_FILE
 the URL or local path to a `key=value`-style environment variable file. this is used for dynamically reloading environment variables. **not all environment variables are able to be updated by this.** (e.g. the ratelimiters are instantiated when starting cobalt, and cannot be changed)
+
+### TUNNEL_DEBUG
+set to `1` to enable temporary tunnel diagnostics in the API console. restart the API after changing this setting, or use `API_ENV_FILE` reloads.
+
+`[tunnel]` JSON records include timestamps, process IDs, tunnel IDs, pinned proxy IDs, CDN hostnames, HEAD/GET statuses, stream byte counts, link refresh results, and FFmpeg startup/exit diagnostics. match `proxyId` with the `[proxy-pool]` selection log to identify the proxy address. `route=environment` means the global dispatcher is used; it does not confirm whether environment proxy settings or `NO_PROXY` route the request through a proxy.
+
+full URLs, query parameters, cookies, credentials, raw exception messages, and raw FFmpeg stderr are not logged. FFmpeg errors are reduced to HTTP status codes and known failure categories. `probe-only` means the request contained the `p` parameter and intentionally returned no file; `empty-input` identifies a rejected HEAD response or zero input size; `body-end` and `output-close` show byte counts and completion state.
+
+diagnostics are disabled by default. turn them off after investigation: chunked downloads can produce many records.
 
 ## networking
 [*jump to the table*](#networking-vars)

@@ -3,6 +3,7 @@ import ffmpeg from "./ffmpeg.js";
 
 import { closeResponse } from "./shared.js";
 import { internalStream } from "./internal.js";
+import { logTunnel } from "./diagnostics.js";
 
 export default async function(res, streamInfo) {
     try {
@@ -26,7 +27,8 @@ export default async function(res, streamInfo) {
         }
 
         closeResponse(res);
-    } catch {
+    } catch (error) {
+        logTunnel("stream-error", streamInfo, { error });
         closeResponse(res);
     }
 }

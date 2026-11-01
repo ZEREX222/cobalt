@@ -300,7 +300,7 @@ export class ProxyPool {
                 throw new Error(`No available proxy for service ${service}`);
             }
             excluded.add(entry.id);
-            this.log(`[proxy-pool] service=${service} host=${hostname} proxy=${entry.address} attempt=${number}/3 result=start`);
+            this.log(`[proxy-pool] service=${service} host=${hostname} proxy=${entry.address} proxyId=${entry.id} attempt=${number}/3 result=start`);
             const attempt = {
                 id: entry.id, service, cleanups: [],
                 controller: new AbortController(),

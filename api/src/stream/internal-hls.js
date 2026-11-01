@@ -1,6 +1,7 @@
 import HLS from "hls-parser";
 import { createInternalStream } from "./manage.js";
 import { request } from "undici";
+import { logTunnel } from "./diagnostics.js";
 
 function getURL(url) {
     try {
@@ -79,6 +80,7 @@ export async function handleHlsPlaylist(streamInfo, req, res) {
     hlsPlaylist = HLS.stringify(hlsPlaylist);
 
     res.setHeader('content-type', 'application/vnd.apple.mpegurl');
+    logTunnel("hls-playlist", streamInfo, { bytes: Buffer.byteLength(hlsPlaylist) });
     res.send(hlsPlaylist);
 }
 
@@ -115,6 +117,7 @@ export async function probeInternalHLSTunnel(streamInfo) {
     const config = { headers, dispatcher, signal, maxRedirections: 16 };
 
     const manifestResponse = await fetch(url, config);
+    logTunnel("estimate-hls-response", streamInfo, { status: manifestResponse.status });
 
     const manifest = HLS.parse(await manifestResponse.text());
     if (manifest.segments.length === 0)

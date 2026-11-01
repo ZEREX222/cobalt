@@ -8,6 +8,8 @@ import { env } from "../../config.js";
 import { getCookie } from "../cookie/manager.js";
 import { createStream } from "../../stream/manage.js";
 import { getYouTubeSession } from "../helpers/youtube-session.js";
+import { currentProxy } from "../../misc/proxy-pool.js";
+import { logTunnel } from "../../stream/diagnostics.js";
 
 // https://github.com/LuanRT/YouTube.js/pull/1052
 Platform.shim.eval = async (data) => {
@@ -333,6 +335,11 @@ export default async function (o) {
         innertubeClient = env.ytSessionInnertubeClient || "WEB_EMBEDDED";
     }
 
+    const diagnostics = {
+        service: "youtube",
+        proxyId: currentProxy()?.id,
+        originalRequest: { innertubeClient },
+    };
     let yt;
     try {
         yt = await cloneInnertube(
@@ -358,6 +365,7 @@ export default async function (o) {
             o.requestIP,
         );
     } catch (e) {
+        logTunnel("youtube-session-error", diagnostics, { error: e });
         if (e === "no_session_tokens") {
             return { error: "youtube.no_session_tokens" };
         } else if (e.message?.endsWith("decipher algorithm")) {
@@ -373,6 +381,11 @@ export default async function (o) {
 
     let info;
     try {
+        logTunnel("youtube-player", diagnostics, {
+            playerId: yt.session.player?.player_id,
+            signatureTimestamp: yt.session.player?.signature_timestamp,
+            poTokenPresent: !!yt.session.po_token,
+        });
         const args = {
             videoId: o.id,
             client: innertubeClient,
@@ -399,6 +412,7 @@ export default async function (o) {
 
         info = await yt.actions.execute("/player", args);
     } catch (e) {
+        logTunnel("youtube-player-error", diagnostics, { error: e });
         if (e?.info) {
             let errorInfo;
             try { errorInfo = JSON.parse(e?.info); } catch {}

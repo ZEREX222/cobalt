@@ -3,20 +3,26 @@ import { getInternalTunnel } from "../stream/manage.js";
 import { setTunnelPort } from "../config.js";
 import { Green } from "../misc/console-text.js";
 import express from "express";
+import { logTunnel } from "../stream/diagnostics.js";
 
 const validateTunnel = (req, res) => {
     if (!req.ip.endsWith('127.0.0.1')) {
+        logTunnel("internal-rejected", {}, { status: 403, reason: "non-loopback" });
         res.sendStatus(403);
         return;
     }
 
     if (String(req.query.id).length !== 21) {
+        logTunnel("internal-rejected", {}, { status: 400, reason: "invalid-query" });
         res.sendStatus(400);
         return;
     }
 
     const streamInfo = getInternalTunnel(req.query.id);
     if (!streamInfo) {
+        logTunnel("internal-rejected", { internalId: req.query.id }, {
+            status: 404, reason: "cache-miss",
+        });
         res.sendStatus(404);
         return;
     }
@@ -46,7 +52,10 @@ export const setupTunnelHandler = () => {
     // fallback
     tunnelHandler.use((_, res) => res.sendStatus(400));
     // error handler
-    tunnelHandler.use((_, __, res, ____) => res.socket.end());
+    tunnelHandler.use((error, req, res, next) => {
+        logTunnel("internal-error", { internalId: req.query.id }, { error });
+        res.socket.end();
+    });
 
 
     const server = tunnelHandler.listen({

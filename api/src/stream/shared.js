@@ -1,7 +1,8 @@
-import { genericUserAgent } from "../config.js";
+import { env, genericUserAgent } from "../config.js";
 import { vkClientAgent } from "../processing/services/vk.js";
 import { getInternalTunnelFromURL } from "./manage.js";
 import { probeInternalTunnel } from "./internal.js";
+import { logTunnel } from "./diagnostics.js";
 
 const defaultHeaders = {
     'user-agent': genericUserAgent
@@ -43,13 +44,26 @@ export function getHeaders(service) {
         .reduce((p, [key, val]) => ({ ...p, [key]: String(val) }), {})
 }
 
-export function pipe(from, to, done) {
+export function pipe(from, to, done, diagnostics) {
     from.on('error', done)
         .on('close', done);
 
     to.on('error', done)
       .on('close', done);
 
+    if (env.tunnelDebug && diagnostics) {
+        let bytes = 0;
+        from.on("data", chunk => bytes += chunk.length);
+        from.once("end", () => logTunnel("body-end", diagnostics, { bytes }));
+        from.once("error", error => logTunnel("body-error", diagnostics, { bytes, error }));
+        from.once("close", () => logTunnel("body-close", diagnostics, {
+            bytes, ended: from.readableEnded,
+        }));
+        to.once("error", error => logTunnel("output-error", diagnostics, { bytes, error }));
+        to.once("close", () => logTunnel("output-close", diagnostics, {
+            bytes, finished: to.writableFinished,
+        }));
+    }
     from.pipe(to);
 }
 
