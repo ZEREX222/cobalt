@@ -131,6 +131,8 @@ set to `1` to enable temporary tunnel diagnostics in the API console. restart th
 
 full URLs, query parameters, cookies, credentials, raw exception messages, and raw FFmpeg stderr are not logged. FFmpeg errors are reduced to HTTP status codes and known failure categories. `probe-only` means the request contained the `p` parameter and intentionally returned no file; `empty-input` identifies a rejected HEAD response or zero input size; `body-end` and `output-close` show byte counts and completion state.
 
+for YouTube, `youtube-player` records distinguish `poTokenPresent` (session token) from `playerPoTokenPresent` (player token). `poTokensMatch` is true only when both tokens are present and equal. records containing a `googlevideo.com` URL, including `internal-created` and CDN HEAD/GET requests, include `urlPoTokenPresent`: whether the media URL contains a nonempty `pot` parameter. token values are never logged; presence does not prove validity or acceptance by YouTube.
+
 diagnostics are disabled by default. turn them off after investigation: chunked downloads can produce many records.
 
 ## networking

@@ -7,7 +7,7 @@ const detailKeys = new Set([
     "contentLength", "expected", "received", "aborted", "ended", "finished",
     "code", "signal", "childPid", "inputs", "system", "reasons", "httpStatus",
     "stderrPresent", "playerId", "signatureTimestamp", "poTokenPresent",
-    "shutdownRequested",
+    "playerPoTokenPresent", "poTokensMatch", "shutdownRequested",
 ]);
 
 export function tunnelError(error) {
@@ -64,8 +64,10 @@ export function ffmpegError(stderr) {
 export function logTunnel(event, info = {}, details = {}) {
     if (!env.tunnelDebug) return;
 
-    const host = typeof info.url === "string" && URL.canParse(info.url)
-        ? new URL(info.url).hostname : undefined;
+    const url = typeof info.url === "string" && URL.canParse(info.url)
+        ? new URL(info.url) : undefined;
+    const isYouTubeMedia = url && (url.hostname === "googlevideo.com"
+        || url.hostname.endsWith(".googlevideo.com"));
     const fields = {
         time: new Date().toISOString(),
         pid: process.pid,
@@ -78,7 +80,8 @@ export function logTunnel(event, info = {}, details = {}) {
         route: info.proxyId ? "pinned-proxy"
             : info.requestIP ? "freebind"
             : info.dispatcher ? "custom-dispatcher" : "environment",
-        host,
+        host: url?.hostname,
+        urlPoTokenPresent: isYouTubeMedia ? !!url.searchParams.get("pot") : undefined,
         client: safeLabel(info.originalRequest?.innertubeClient),
     };
     for (const [key, value] of Object.entries(details)) {

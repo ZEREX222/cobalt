@@ -66,6 +66,43 @@ test("error summaries handle cyclic causes and categorize FFmpeg without emittin
     assert.equal(ffmpegError("").stderrPresent, false);
 });
 
+test("YouTube diagnostics distinguish session, player and media URL tokens without exposing them", t => {
+    const records = capture(t);
+    const info = {
+        service: "youtube", proxyId: "test-proxy",
+        url: "https://rr1.googlevideo.com/videoplayback?pot=private-token&sig=private-signature",
+    };
+    logTunnel("youtube-player", info, {
+        poTokenPresent: true, playerPoTokenPresent: false, poTokensMatch: false,
+    });
+    assert.equal(records[0].poTokenPresent, true);
+    assert.equal(records[0].playerPoTokenPresent, false);
+    assert.equal(records[0].poTokensMatch, false);
+    assert.equal(records[0].urlPoTokenPresent, true);
+
+    info.url = "https://rr1.googlevideo.com/videoplayback?sig=private-signature";
+    logTunnel("cdn-request", info, { method: "HEAD" });
+    assert.equal(records[1].urlPoTokenPresent, false);
+
+    info.url += "&pot=";
+    logTunnel("cdn-request", info, { method: "GET" });
+    assert.equal(records[2].urlPoTokenPresent, false);
+
+    logTunnel("youtube-player", { service: "youtube" }, {
+        poTokenPresent: true, playerPoTokenPresent: true, poTokensMatch: true,
+    });
+    assert.equal(records[3].poTokensMatch, true);
+    assert.ok(!("urlPoTokenPresent" in records[3]));
+
+    info.url = "https://cdn.example/video?pot=private-token";
+    logTunnel("cdn-request", info);
+    assert.ok(!("urlPoTokenPresent" in records[4]));
+    const output = JSON.stringify(records);
+    assert.ok(!output.includes("private-token"));
+    assert.ok(!output.includes("private-signature"));
+    assert.ok(!output.includes("videoplayback"));
+});
+
 test("pipe diagnostics count bytes without changing output", async t => {
     const records = capture(t);
     const chunks = [];

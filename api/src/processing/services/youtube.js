@@ -385,6 +385,9 @@ export default async function (o) {
             playerId: yt.session.player?.player_id,
             signatureTimestamp: yt.session.player?.signature_timestamp,
             poTokenPresent: !!yt.session.po_token,
+            playerPoTokenPresent: !!yt.session.player?.po_token,
+            poTokensMatch: !!yt.session.po_token && !!yt.session.player?.po_token
+                && yt.session.po_token === yt.session.player.po_token,
         });
         const args = {
             videoId: o.id,
